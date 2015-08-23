@@ -682,6 +682,7 @@ func buildFunc(e *Engine, f stack) *Engine {
 		newFunc.tiipe = "LAMBDA"
 		newFunc.subType="INTERPRETED"
 		newFunc._arrayVal=f
+		newFunc._line = e._line
 		ne.dataStack=pushStack(ne.dataStack,newFunc)
 		if USE_FUNCTION_CACHE && v._id > 0 {
 		newFunc.codeStackConsume = len(f)
@@ -1092,17 +1093,19 @@ func MakeEngine() *Engine{
 		e=add(e, "THIN",  NewCode("THIN", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
-		el1.share_parent_environment = true
-		ne.dataStack = pushStack(ne.dataStack, el1)
+		el2 := clone(el1)
+		el2.share_parent_environment = true
+		ne.dataStack = pushStack(ne.dataStack, el2)
 		return ne}))
 		
 		e=add(e, "MACRO",  NewCode("MACRO", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
-		el1.no_environment = true
-		el1.share_parent_environment = true
-		el1.environment = nil
-		ne.dataStack = pushStack(ne.dataStack, el1)
+		el2 := clone(el1)
+		el2.no_environment = true
+		el2.share_parent_environment = true
+		el2.environment = nil
+		ne.dataStack = pushStack(ne.dataStack, el2)
 		return ne}))
 		
 		e=add(e, "CALL",  NewCode("CALL", 1, func (ne *Engine,c *Thingy) *Engine {
@@ -1409,15 +1412,6 @@ func MakeEngine() *Engine{
 		}
 		el.tiipe = targetType
 		ne.dataStack = pushStack(ne.dataStack, el  )
-		return ne}))
-	
-	e=add(e, "->STRING",  NewCode("->STRING", 0, func (ne *Engine,c *Thingy) *Engine {
-		var t,el *Thingy
-		el, ne.dataStack = popStack(ne.dataStack)
-		
-		 t = NewString(el.getString(), el.environment)
-		 
-		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
 	
 	e=add(e, "->BYTES",  NewCode("->BTES", 0, func (ne *Engine,c *Thingy) *Engine {
