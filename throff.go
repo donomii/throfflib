@@ -23,6 +23,7 @@ import "log"
 import "io"
 import "bytes"
 import "database/sql"
+import "github.com/icza/gowut/gwu"
 import ( _ "github.com/mattn/go-sqlite3" )
 
 var interpreter_debug = false
