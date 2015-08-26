@@ -23,7 +23,6 @@ import "log"
 import "io"
 import "bytes"
 import "database/sql"
-import "github.com/icza/gowut/gwu"
 import ( _ "github.com/mattn/go-sqlite3" )
 
 var interpreter_debug = false
@@ -579,7 +578,6 @@ func engineDump (e *Engine) {
 		fmt.Printf("=========================================================================\n")	
 }
 func run (e *Engine) (*Engine, bool) {
-	
 	ok := true
 	for ok {
 		e, ok = doStep(e)
@@ -1377,17 +1375,24 @@ func MakeEngine() *Engine{
 		var  threadBranch *Thingy
 		threadBranch, ne.dataStack =popStack(ne.dataStack)
 		
+		
 		ne2:=cloneEngine(ne, true)
 		ne2.codeStack=stack{}
+		ne2.lexStack=stack{}
+		ne2.codeStack = pushStack(ne2.codeStack, NewToken("CALL", ne.environment))
+		ne2.lexStack = pushStack(ne2.lexStack, ne.environment)
+		
 		ne2.codeStack = pushStack(ne2.codeStack, threadBranch)
-		ne2.lexStack = pushStack(ne2.lexStack, e.environment)
+		ne2.lexStack = pushStack(ne2.lexStack, ne.environment)
 		go run(ne2)
 		
 		return ne}))
 	
 	
 	e=add(e, "SLEEP", NewCode("SLEEP", 0, func (ne *Engine,c *Thingy) *Engine {
-			time.Sleep(time.Millisecond*1000)
+			var el1 *Thingy
+			el1, ne.dataStack = popStack(ne.dataStack)
+			time.Sleep(strconv.ParseInt( el1.getSource(), 10, 64 ))
 		return ne}))
 	
 	
