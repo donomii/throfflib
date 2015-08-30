@@ -1392,7 +1392,8 @@ func MakeEngine() *Engine{
 	e=add(e, "SLEEP", NewCode("SLEEP", 0, func (ne *Engine,c *Thingy) *Engine {
 			var el1 *Thingy
 			el1, ne.dataStack = popStack(ne.dataStack)
-			time.Sleep(strconv.ParseInt( el1.getSource(), 10, 64 ))
+			n, _ := strconv.ParseInt( el1.getSource(), 10, 64 )
+			time.Sleep(time.Duration(n) * time.Millisecond)
 		return ne}))
 	
 	
