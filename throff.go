@@ -1837,6 +1837,37 @@ func MakeEngine() *Engine{
 		//stackDump(ne.dataStack)
 		return ne}))
 		
+		
+		e=add(e, "NEWQUEUE",  NewCode("NEWQUEUE", 0, func (ne *Engine,c *Thingy) *Engine {
+		q := make(chan *Thingy, 1000)
+		ne.dataStack = pushStack(ne.dataStack, NewWrapper(q))
+		//stackDump(ne.dataStack)
+		return ne}))
+		
+		e=add(e, "WRITEQ",  NewCode("WRITEQ", 0, func (ne *Engine,c *Thingy) *Engine {
+			var el,el1 *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		el1, ne.dataStack = popStack(ne.dataStack)
+		
+		q := el._structVal.(chan *Thingy)
+		q <- el1
+		ne.dataStack = pushStack(ne.dataStack, NewWrapper(q))
+		//stackDump(ne.dataStack)
+		return ne}))
+		
+		e=add(e, "READQ",  NewCode("READQ", 0, func (ne *Engine,c *Thingy) *Engine {
+			var el,el1 *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		
+		
+		q := el._structVal.(chan *Thingy)
+		el1 = <- q
+		
+		ne.dataStack = pushStack(ne.dataStack, el1)
+		//stackDump(ne.dataStack)
+		return ne}))
+		
+		
 	//fmt.Println("Done")
 	return e
 }
