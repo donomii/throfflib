@@ -29,7 +29,7 @@ var interpreter_debug = false
 var interpreter_trace = false
 var traceProg = false
 var debug = false
-var USE_FUNCTION_CACHE = true
+var USE_FUNCTION_CACHE = false
 var seqID = 0					//Every instruction in the program gets a unique number, used by the optimiser and similar tasks
 
 type StepFunc func(*Engine, *Thingy) *Engine
@@ -1379,17 +1379,19 @@ func MakeEngine() *Engine{
 		ne2:=cloneEngine(ne, true)
 		ne2.codeStack=stack{}
 		ne2.lexStack=stack{}
+		ne2.dataStack=stack{}
+		
 		ne2.codeStack = pushStack(ne2.codeStack, NewToken("CALL", ne.environment))
 		ne2.lexStack = pushStack(ne2.lexStack, ne.environment)
 		
 		ne2.codeStack = pushStack(ne2.codeStack, threadBranch)
 		ne2.lexStack = pushStack(ne2.lexStack, ne.environment)
-		go run(ne2)
+		go func () {run(ne2)}()
 		
 		return ne}))
 	
 	
-	e=add(e, "SLEEP", NewCode("SLEEP", 0, func (ne *Engine,c *Thingy) *Engine {
+	e=add(e, "SLEEP", NewCode("SLEEP", 1, func (ne *Engine,c *Thingy) *Engine {
 			var el1 *Thingy
 			el1, ne.dataStack = popStack(ne.dataStack)
 			n, _ := strconv.ParseInt( el1.getSource(), 10, 64 )
@@ -1411,6 +1413,10 @@ func MakeEngine() *Engine{
 		targetType := t.getString()
 		el = clone(el)
 		if targetType == "STRING" && ( el.tiipe == "CODE" || el.tiipe == "LAMBDA"){
+			el._stringVal = el.getString() //Calculate the string representation of the array before we change the type
+			el._source = el.getSource() //Calculate the string representation of the array before we change the type
+		}
+		if targetType == "STRING" && ( el.tiipe == "BOOLEAN"){
 			el._stringVal = el.getString() //Calculate the string representation of the array before we change the type
 			el._source = el.getSource() //Calculate the string representation of the array before we change the type
 		}
@@ -1437,6 +1443,10 @@ func MakeEngine() *Engine{
 	
 	e=add(e, ".S",  NewCode(".S", 0, func (e *Engine,c *Thingy) *Engine {
 		stackDump(e.dataStack)
+		return e}))
+	
+	e=add(e, ".C",  NewCode(".C", 0, func (e *Engine,c *Thingy) *Engine {
+		stackDump(e.codeStack)
 		return e}))
 	
 	e=add(e, ".L",  NewCode(".S", 0, func (e *Engine,c *Thingy) *Engine {
@@ -1839,20 +1849,21 @@ func MakeEngine() *Engine{
 		return ne}))
 		
 		
-		e=add(e, "NEWQUEUE",  NewCode("NEWQUEUE", 0, func (ne *Engine,c *Thingy) *Engine {
+		e=add(e, "NEWQUEUE",  NewCode("NEWQUEUE", -1, func (ne *Engine,c *Thingy) *Engine {
 		q := make(chan *Thingy, 1000)
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(q))
 		//stackDump(ne.dataStack)
 		return ne}))
 		
-		e=add(e, "WRITEQ",  NewCode("WRITEQ", 0, func (ne *Engine,c *Thingy) *Engine {
+		e=add(e, "WRITEQ",  NewCode("WRITEQ", 2, func (ne *Engine,c *Thingy) *Engine {
 			var el,el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
 		
 		q := el._structVal.(chan *Thingy)
+		
 		q <- el1
-		ne.dataStack = pushStack(ne.dataStack, NewWrapper(q))
+		//ne.dataStack = pushStack(ne.dataStack, NewWrapper(q))
 		//stackDump(ne.dataStack)
 		return ne}))
 		
