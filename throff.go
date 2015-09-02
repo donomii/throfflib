@@ -23,6 +23,7 @@ import "log"
 import "io"
 import "bytes"
 import "database/sql"
+import "github.com/mdlayher/arp"
 import ( _ "github.com/mattn/go-sqlite3" )
 
 var interpreter_debug = false
@@ -1878,8 +1879,49 @@ func MakeEngine() *Engine{
 		ne.dataStack = pushStack(ne.dataStack, el1)
 		//stackDump(ne.dataStack)
 		return ne}))
+
+		e=add(e, "ARP",  NewCode("ARP", 0, func (ne *Engine,c *Thingy) *Engine {
+			var el,el1 *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		el1, ne.dataStack = popStack(ne.dataStack)
 		
 		
+		ifi,_ := net.InterfaceByName(el.getString())
+		fmt.Printf("%v\n", ifi)
+		arp,_ := arp.NewClient(ifi)
+		s := net.ParseIP(el1.getString())
+		fmt.Printf("%V\n", s)
+		addr, _ := arp.Resolve(s)
+		
+		ne.dataStack = pushStack(ne.dataStack, NewString(string(addr), nil))
+		return ne}))
+
+		e=add(e, "DNS.CNAME",  NewCode("DNS.CNAME", 0, func (ne *Engine,c *Thingy) *Engine {
+		var el *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		r,_ := net.LookupCNAME(el.getString())
+		ne.dataStack = pushStack(ne.dataStack, NewString(string(r), nil))
+		return ne}))
+		
+		e=add(e, "DNS.HOST",  NewCode("DNS.HOST", 0, func (ne *Engine,c *Thingy) *Engine {
+		var el *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		r,_ := net.LookupHost(el.getString())
+		a := fmt.Sprintf("->ARRAY [ %v  ]", strings.Join(r, " "))
+		ne = ne.RunString(a, "DNS.HOST")
+		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
+		return ne}))
+
+		e=add(e, "DNS.TXT",  NewCode("DNS.TXT", 0, func (ne *Engine,c *Thingy) *Engine {
+		var el *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		r,_ := net.LookupTXT(el.getString())
+		a := fmt.Sprintf("->ARRAY [ %v  ]", strings.Join(r, " "))
+		ne = ne.RunString(a, "DNS.TXT")
+		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
+		return ne}))
+		
+
 	//fmt.Println("Done")
 	return e
 }
