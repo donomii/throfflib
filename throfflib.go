@@ -1921,7 +1921,46 @@ func MakeEngine() *Engine{
 		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
 		return ne}))
 		
+		e=add(e, "DNS.REVERSE",  NewCode("DNS.REVERSE", 0, func (ne *Engine,c *Thingy) *Engine {
+		var el *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		r,_ := net.LookupAddr(el.getString())
+		a := fmt.Sprintf("->ARRAY [ %v  ]", strings.Join(r, " "))
+		ne = ne.RunString(a, "DNS.REVERSE")
+		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
+		return ne}))
+		
+		
+		e=add(e, "CALL/CC",  NewCode("CALL/CC", 0, func (ne *Engine,c *Thingy) *Engine {
+		var el *Thingy
+		el, ne.dataStack = popStack(ne.dataStack)
+		cc := NewWrapper(ne)
+		cc._engineVal=ne
+		
+		ne = cloneEngine(ne, true)
+		ne.codeStack = pushStack(ne.codeStack, NewToken("CALL", nil))
+		ne.lexStack= pushStack(ne.lexStack, ne.environment)
+		
+		ne.dataStack = pushStack(ne.dataStack, cc)
+		ne.dataStack = pushStack(ne.dataStack, el)
+		
+		
+		return ne}))
 
+		e=add(e, "ACTIVATE/CC",  NewCode("ACTIVATE/CC", 0, func (ne *Engine,c *Thingy) *Engine {
+		var el, el1 *Thingy
+		
+		el, ne.dataStack = popStack(ne.dataStack)
+		el1, ne.dataStack = popStack(ne.dataStack)
+		fmt.Printf("%v\n", el)
+		ne = el._structVal.(*Engine)
+		
+		
+		ne.dataStack = pushStack(ne.dataStack, el1)
+		
+		
+		return ne}))
+		
 	//fmt.Println("Done")
 	return e
 }
