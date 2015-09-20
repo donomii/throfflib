@@ -123,8 +123,14 @@ func (t *Thingy) getSource () string {
 func (t *Thingy) getString () string {
 	if t.tiipe == "ARRAY"  {
 		var accum string = ""
-		for _,el := range t._arrayVal { accum=fmt.Sprintf("%v  %v ", accum, el.getString())}
-		return fmt.Sprintf("%v", accum)
+		for i,el := range t._arrayVal {
+		if i==0 {
+				accum=fmt.Sprintf("%v",  el.getString())
+		} else {
+				 accum=fmt.Sprintf("%v  %v", accum, el.getString())
+		}
+		}
+		return accum
 	}
 	
   	if t.tiipe == "CODE" || t.tiipe == "LAMBDA" {
@@ -1421,6 +1427,10 @@ func MakeEngine() *Engine{
 			el._stringVal = el.getString() //Calculate the string representation of the array before we change the type
 			el._source = el.getSource() //Calculate the string representation of the array before we change the type
 		}
+		if targetType == "STRING" && ( el.tiipe == "ARRAY"){
+			el._stringVal = el.getString() //Calculate the string representation of the array before we change the type
+			el._source = el.getSource() //Calculate the string representation of the array before we change the type
+		}
 		if targetType == "CODE" && ( el.tiipe == "CODE" || el.tiipe == "LAMBDA"){
 			el.arity = 0
 		}
@@ -1931,7 +1941,7 @@ func MakeEngine() *Engine{
 		return ne}))
 		
 		
-		e=add(e, "CALL/CC",  NewCode("CALL/CC", 0, func (ne *Engine,c *Thingy) *Engine {
+		e=add(e, "CALL/CC",  NewCode("CALL/CC", -1, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		cc := NewWrapper(ne)
@@ -1947,12 +1957,12 @@ func MakeEngine() *Engine{
 		
 		return ne}))
 
-		e=add(e, "ACTIVATE/CC",  NewCode("ACTIVATE/CC", 0, func (ne *Engine,c *Thingy) *Engine {
+		e=add(e, "ACTIVATE/CC",  NewCode("ACTIVATE/CC", 2, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		fmt.Printf("%v\n", el)
+		//fmt.Printf("Continuation: %v\n", el)
 		ne = el._structVal.(*Engine)
 		
 		
