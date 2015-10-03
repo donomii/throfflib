@@ -5,6 +5,7 @@
 package throfflib
 import (    
 
+"fmt"
  "strconv"
 "github.com/magsoft-se/wg"
 "image/color"
@@ -13,6 +14,9 @@ import (
  	"image"
 	"image/draw"
 	_ "image/png"
+ "github.com/llgcode/draw2d"
+"github.com/llgcode/draw2d/draw2dimg"
+"github.com/llgcode/draw2d/draw2dkit"
 	"os"
 	"runtime"
 )
@@ -26,6 +30,7 @@ var (
 	texture   uint32
 	rotationX float32
 	rotationY float32
+	gc *draw2dimg.GraphicContext
 )
 
 
@@ -43,6 +48,13 @@ CallbackState = CallbackState.RunString("WGCALLBACK", "wg callback")
 
 }
 		
+
+func EnsureGC () {
+	if (gc == nil) {
+		dest := wg.GetImage()
+		gc = draw2dimg.NewGraphicContext(dest)
+	}
+}
 		
 //Creates a new engine and populates it with the core functions
 func LoadGraphics(e *Engine) *Engine{
@@ -79,12 +91,126 @@ func LoadGraphics(e *Engine) *Engine{
 		return e}))
 
 
+	e=add(e, "wg.GetStringBounds", NewCode("wg.GetStringBounds", 0, func (e *Engine,c *Thingy) *Engine {
+		var el1 *Thingy
+		el1, e.dataStack = popStack(e.dataStack)
+		left, top, right, bottom := gc.GetStringBounds(el1.getString())
+		e.dataStack = append(e.dataStack, NewString(fmt.Sprintf("%v",bottom), c))
+		e.dataStack = append(e.dataStack, NewString(fmt.Sprintf("%v",right), c))
+		e.dataStack = append(e.dataStack, NewString(fmt.Sprintf("%v",top), c))
+		e.dataStack = append(e.dataStack, NewString(fmt.Sprintf("%v",left), c))
+		return e}))
+
+
+	e=add(e, "wg.SetFillColor", NewCode("wg.SetFillColor", 1, func (e *Engine,c *Thingy) *Engine {
+		var el1 *Thingy
+		el1, e.dataStack = popStack(e.dataStack)
+		col := el1._structVal.(color.RGBA) 
+		EnsureGC()
+		gc.SetFillColor(col)
+	return e}))
+
+	e=add(e, "wg.SetStrokeColor", NewCode("wg.SetStrokeColor", 1, func (e *Engine,c *Thingy) *Engine {
+		var el1 *Thingy
+		el1, e.dataStack = popStack(e.dataStack)
+		col := el1._structVal.(color.RGBA) 
+		EnsureGC()
+		gc.SetStrokeColor(col)
+	return e}))
+
+	e=add(e, "wg.CloseAndFill", NewCode("wg.CloseAndFill", 0, func (e *Engine,c *Thingy) *Engine {
+		EnsureGC()
+		gc.Close()
+		gc.FillStroke()
+	return e}))
+
+
+
+	e=add(e, "wg.MoveTo", NewCode("wg.MoveTo", 2, func (e *Engine,c *Thingy) *Engine {
+		var el1, el2 *Thingy
+		el1, e.dataStack = popStack(e.dataStack)
+		el2, e.dataStack = popStack(e.dataStack)
+		x1, _ := strconv.ParseFloat( el1.getString(), 32 )
+		x2, _ := strconv.ParseFloat( el2.getString(), 32 )
+		EnsureGC()
+		gc.MoveTo(float64(x1),float64(x2)) // should always be called first for a new path
+	return e}))
+
+	
+	e=add(e, "wg.LineTo", NewCode("wg.LineTo", 2, func (e *Engine,c *Thingy) *Engine {
+		var el1, el2 *Thingy
+		el1, e.dataStack = popStack(e.dataStack)
+		el2, e.dataStack = popStack(e.dataStack)
+		x1, _ := strconv.ParseFloat( el1.getString(), 32 )
+		x2, _ := strconv.ParseFloat( el2.getString(), 32 )
+		EnsureGC()
+		gc.LineTo(float64(x1),float64(x2)) // should always be called first for a new path
+	return e}))
+
+	e=add(e, "wg.RoundedRectangle", NewCode("wg.RoundedRectangle", 2, func (e *Engine,c *Thingy) *Engine {
+		var el1, el2, el3, el4 *Thingy
+		el1, e.dataStack = popStack(e.dataStack)
+		el2, e.dataStack = popStack(e.dataStack)
+		el3, e.dataStack = popStack(e.dataStack)
+		el4, e.dataStack = popStack(e.dataStack)
+		x1, _ := strconv.ParseFloat( el1.getString(), 32 )
+		x2, _ := strconv.ParseFloat( el2.getString(), 32 )
+		x3, _ := strconv.ParseFloat( el3.getString(), 32 )
+		x4, _ := strconv.ParseFloat( el4.getString(), 32 )
+		EnsureGC()
+		draw2dkit.RoundedRectangle(gc, x1, x2, x3, x4, 10, 10)
+		gc.FillStroke()
+	return e}))
+
+
+e=add(e, "wg.FillStringAt", NewCode("wg.FillStringAt", 3, func (e *Engine,c *Thingy) *Engine {
+		var el1, el2, el3 *Thingy
+		el3, e.dataStack = popStack(e.dataStack)
+		el1, e.dataStack = popStack(e.dataStack)
+		el2, e.dataStack = popStack(e.dataStack)
+		x1, _ := strconv.ParseFloat( el1.getString(), 32 )
+		x2, _ := strconv.ParseFloat( el2.getString(), 32 )
+		EnsureGC()
+		// Set the font luximbi.ttf
+		gc.SetFontData(draw2d.FontData{Name: "luxi", Family: draw2d.FontFamilyMono, Style: draw2d.FontStyleBold | draw2d.FontStyleItalic})
+		// Set the fill text color to black
+		gc.SetFillColor(image.White)
+		gc.SetFontSize(15)
+		gc.FillStringAt(el3.getString(),float64(x1),float64(x2)) // should always be called first for a new path
+	return e}))
+
+
+
 	e=add(e, "WG.CLEAR", NewCode("WG.CLEAR", 1, func (e *Engine,c *Thingy) *Engine {
 		var el3 *Thingy
 		el3, e.dataStack = popStack(e.dataStack)
 		col := el3._structVal.(color.RGBA)
 		wg.ClearImage(col)
 		return e}))
+
+	e=add(e, "WG.TEST", NewCode("WG.TEST", 0, func (e *Engine,c *Thingy) *Engine {
+		/*var el1, el2,el3 *Thingy
+		el1, e.dataStack = popStack(e.dataStack)
+		el2, e.dataStack = popStack(e.dataStack)
+		el3, e.dataStack = popStack(e.dataStack)
+		x1, _ := strconv.ParseInt( el1.getString(), 10, 32 )
+		x2, _ := strconv.ParseInt( el2.getString(), 10, 32 )
+		col := el3._structVal.(color.RGBA) */
+		EnsureGC()
+		// Set some properties
+		gc.SetFillColor(color.RGBA{0x44, 0xff, 0x44, 0xff})
+		gc.SetStrokeColor(color.RGBA{0x44, 0x44, 0x44, 0xff})
+		gc.SetLineWidth(5)
+
+		// Draw a closed shape
+		gc.MoveTo(100, 100) // should always be called first for a new path
+		gc.LineTo(600, 150)
+		gc.QuadCurveTo(600, 10, 10, 10)
+		gc.Close()
+		gc.FillStroke()
+		return e}))
+
+
 
 	e=add(e, "WG.SETPOINT", NewCode("WG.SETPOINT", 3, func (e *Engine,c *Thingy) *Engine {
 		var el1, el2,el3 *Thingy
@@ -111,6 +237,7 @@ func LoadGraphics(e *Engine) *Engine{
 		col := color.RGBA{uint8(x1),uint8(x2),uint8(x3),uint8(x4)}
 		e.dataStack = append(e.dataStack, NewWrapper(col))
 		return e}))
+
 	e=add(e, "WG.GETKEY", NewCode("WG.GETKEY", 0, func (e *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, e.dataStack = popStack(e.dataStack)
