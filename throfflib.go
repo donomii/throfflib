@@ -43,7 +43,8 @@ type Thingy struct {
 	subType			string						//The interpreter visible type.  Almost always "NATIVE" or "INTERPRETED"
 	userType		*Thingy						//A purely user defined type.  Can be anything
 	_source	string								//A string that, in theory, could be eval-ed to recreate the data structure.  Also used for if statement comparisons
-	environment 	*Thingy  					//String needs to be changed to *Thingy so all environments are just ordinary throff HASHES
+	environment 	*Thingy  					//Functions carry a reference to their parent environment, which allows us to create a new environment for the function to run in each time it is called
+    errorChain      stack                       //Error handlers are functions that are kept on a stack
 	//_parentEnvironment *Thingy
 	lock 			*Thingy
 	_structVal		interface{}
@@ -53,15 +54,15 @@ type Thingy struct {
 	_hashVal		map[string]*Thingy
 	_bytesVal		[]byte
 	_note			string
-	arity			int
-	_intVal			int
-	_id				int
-	_line			int
-	_filename		string
-	codeStackConsume	int
+	arity			int                     //The number of arguments this function pops off the stack, minus the number of return results`
+	_intVal			int                     //Currently used for booleans, will also be used to cache string->int conversions
+	_id				int                     //Every token gets a unique id number, this allows us to do JIT on the code, amoung other tricks
+	_line			int                     //Line number of instruction
+	_filename		string                  //The source code file this instruction was written in
+	codeStackConsume	int                 //When the functions are cached, we need to know how long they are, and skip the build phase by popping this many Thingys off the code stack
 	immutable		bool
 	share_parent_environment	bool			//Instead of creating a new lexical pad (environment to store variables), use the surrounding lexical environment.  This allows e.g. if statements to affect variables in the surrounding function
-	no_environment	bool						//AKA macro.  Instead of using the lexical environment, this function will use the lexical environment that it is INVOKED in.  Required for doing complicated bind operations, probably a bad idea for anything else
+	no_environment	bool						//AKA macro.  Instead of using its own lexical environment, this function will use the lexical environment that it is INVOKED in.  Required for doing complicated bind operations, probably a bad idea for anything else
 	
 }
 
@@ -69,7 +70,8 @@ type stack []*Thingy
 type Engine struct {
 	//previousEngine	*Engine
 	dataStack 			stack				//The argument stack
-	environment 		*Thingy  			//The lexical/dynamic environment
+	environment 		*Thingy  			//The current lexical environment
+    dyn                 stack               //The current dynamic environment
 	codeStack			stack				//The future of the program
 	lexStack			stack
 	_buildingFunc		bool				//do we run functions or just shift them to the data stack?
@@ -275,7 +277,7 @@ func tokenStepper (e *Engine,c *Thingy) *Engine {
 		if (ne._funcLevel<0) {
 			fmt.Printf ("Unmatched [ at line %v\n", c._line)
 			engineDump(ne)
-			panic("Unmatched [") 
+			panic(fmt.Sprintf ("Unmatched [ at line %v\n", c._line))
 			
 		}	//Too many close functions, not enough opens
 		if (ne._funcLevel==0) {							//Either we are not building a function, or we just finished
@@ -291,9 +293,7 @@ func tokenStepper (e *Engine,c *Thingy) *Engine {
 					if val.tiipe == "CODE" {
 						
 						ne.codeStack = pushStack(ne.codeStack, val)
-				
-							ne.lexStack = pushStack(ne.lexStack, e.environment)
-				
+						ne.lexStack = pushStack(ne.lexStack, e.environment)
 					} else {
 						ne.dataStack = pushStack(ne.dataStack, val)
 					}
@@ -361,7 +361,7 @@ func NewString (aString string,  env *Thingy) *Thingy {
 	return t
 }
 
-//Not used yet
+//Stores a reference to the engine at the point where it was called.  When activated, execution continues at that point
 func NewContinuation (e *Engine) *Thingy {
 	t := newThingy()
 	t.tiipe="CONTINUATION"
@@ -466,12 +466,14 @@ func doStep(e *Engine) (*Engine, bool) {
 	
 	if len(e.codeStack)>0 {											//If there are any instructions left
 		var v, lex *Thingy
+        var dyn stack
 		//v, _ = popStack(e.codeStack)
 		ne := cloneEngine(e, false)								//Clone the current engine state.  The false means "do not clone the lexical environment" i.e. it 	
 																//will be common to this step and the previous step.  Otherwise we would be running in fully 
 																//immutable mode (to come)
 		v, ne.codeStack = popStack(ne.codeStack)							//Pop an instruction off the instruction stack.  Usually a token, but could be data or native code
 		lex, ne.lexStack = popStack(ne.lexStack)
+        dyn = lex.errorChain
 		if v._line !=0 && len(v._filename) > 1 {
 				m := ne._heatMap[v._filename]
 				if m == nil {
@@ -493,6 +495,7 @@ func doStep(e *Engine) (*Engine, bool) {
 			ne._line = v._line
 			if lex != nil {
 			ne.environment = lex								//Set the current environment to that carried by the current instruction
+            ne.dyn = dyn
 			}
 		}
 		
@@ -643,29 +646,31 @@ func stackDump (s stack) {
 	}
 }
 
+//This is the code that is called when a function is activated
 func buildFuncStepper (e *Engine,c *Thingy) *Engine {
 			ne:=cloneEngine(e, false)
 			//fmt.Printf("Loading code\n")
-			var  dynamic_env *Thingy
+			var  lexical_env *Thingy
 			//fmt.Printf("Share parent env: %v\n", c.share_parent_environment)
 			if c.tiipe == "CODE" {
 				if c.share_parent_environment == true {
 					//fmt.Println("Sharing parent environment\n")
-					dynamic_env = c.environment
+					lexical_env = c.environment
 					if c.no_environment == true {
-						dynamic_env = e.environment
+						lexical_env = e.environment
 					}
 				} else {
 					//fmt.Println("Creating new environment for function activation\n")
-					dynamic_env = cloneEnv(c.environment)  //Copy the lexical environment to make a dynamic environment (e.g. think of recursion)
+					lexical_env = cloneEnv(c.environment)  //Copy the lexical environment to make a new environment for this function (e.g. think of recursion)
+                    lexical_env.errorChain = e.dyn
 				}
 				//var newArr stack
 				//copy(newArr,c._arrayVal)
 				for _,ee := range c._arrayVal { 
 					//t := clone(ee)
-					//t.environment = dynamic_env
+					//t.environment = lexical_env
 					ne.codeStack = pushStack(ne.codeStack, ee)
-					ne.lexStack = pushStack(ne.lexStack, dynamic_env)
+					ne.lexStack = pushStack(ne.lexStack, lexical_env)
 				} //Make a string->token function?
 			} else {
 				ne.dataStack = pushStack(ne.dataStack, c)
@@ -743,18 +748,19 @@ type StatusReply struct {
 		
 		
 		
-		type TagResponder int
+type TagResponder int
 
-		// NewRPCRequest returns a new rpcRequest.
+// NewRPCRequest returns a new rpcRequest.
 
-		// rpcRequest represents a RPC request.
+// rpcRequest represents a RPC request.
 // rpcRequest implements the io.ReadWriteCloser interface.
 type rpcRequest struct {
 	r    io.Reader     // holds the JSON formated RPC request
 	rw   io.ReadWriter // holds the JSON formated RPC response
 	done chan bool     // signals then end of the RPC request
 }
-		func NewRPCRequest(r io.Reader) *rpcRequest {
+
+func NewRPCRequest(r io.Reader) *rpcRequest {
 	var buf bytes.Buffer
 	done := make(chan bool)
 	return &rpcRequest{r, &buf, done}
@@ -927,14 +933,9 @@ func MakeEngine() *Engine{
 		var v *Thingy
 		bio := bufio.NewReader(os.Stdin)
 		line, _, _ := bio.ReadLine()
-		
-		
-		
 		v = NewString(string(line), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, v)
 		return ne}))
-	
-	
 
 	e=add(e, "OPENFILE",  NewCode("OPENFILE", -1, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
@@ -1957,20 +1958,46 @@ func MakeEngine() *Engine{
 		
 		return ne}))
 
-		e=add(e, "ACTIVATE/CC",  NewCode("ACTIVATE/CC", 2, func (ne *Engine,c *Thingy) *Engine {
+		e=add(e, "ACTIVATE/CC",  NewCode("ACTIVATE/CC", 9999, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		//fmt.Printf("Continuation: %v\n", el)
 		ne = el._structVal.(*Engine)
 		
-		
 		ne.dataStack = pushStack(ne.dataStack, el1)
-		
-		
 		return ne}))
 		
+	
+		e=add(e, "INSTALLDYNA",  NewCode("INSTALLDYNA", 2, func (ne *Engine,c *Thingy) *Engine {
+            var el, err *Thingy
+            err, ne.dataStack = popStack(ne.dataStack)
+            el, ne.dataStack = popStack(ne.dataStack)
+            
+            var new_env = ne.environment
+            var errStack = append(ne.dyn, err)
+            new_env.errorChain = errStack
+            ne.lexStack= pushStack(ne.lexStack, new_env)
+            ne.codeStack = pushStack(ne.codeStack, el)
+		    return ne
+        }))
+		e=add(e, "ERRORHANDLER",  NewCode("ERRORHANDLER", -1, func (ne *Engine,c *Thingy) *Engine {
+            var errHandler *Thingy
+            var new_env = ne.environment
+            errHandler , _ = popStack(new_env.errorChain)
+            ne.dataStack = pushStack(ne.dataStack, errHandler)
+		    return ne
+        }))
+		e=add(e, "DUMP",  NewCode("DUMP", 1, func (ne *Engine,c *Thingy) *Engine {
+            var el *Thingy
+            el, ne.dataStack = popStack(ne.dataStack)
+            
+            fmt.Print("%v", el)
+		    return ne
+        }))
+	
+
+
 	//fmt.Println("Done")
 	return e
 }
