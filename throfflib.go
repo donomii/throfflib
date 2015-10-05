@@ -941,13 +941,15 @@ func MakeEngine() *Engine{
 		var el1 *Thingy
 		
 		el1, ne.dataStack = popStack(ne.dataStack)
-		f,_ := os.Open(el1.getString())
+		f,err := os.Open(el1.getString())
+        if ( ! (err == nil) ) {
+            return ne.RunString(fmt.Sprintf("THROW [ Could not open file %v: %v ] ", el1.getString(), err), "Internal Error") 
+        }
 		
 		reader := bufio.NewReaderSize(f, 999999)
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(f))
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(reader))
-		return ne}))
-	
+        return ne}))
 	
 	e=add(e, "OPENSQLITE",  NewCode("OPENSQLITE", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
