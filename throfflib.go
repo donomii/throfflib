@@ -3,6 +3,7 @@
 //Released under the artistic license 2.0
 
 package throfflib
+import "math/big"
 import "fmt"
 import "time"
 import "strings"
@@ -14,9 +15,9 @@ import "sort"
 import "math"
 import "runtime"
 import "github.com/edsrzf/mmap-go"
-import "net/http" 
-import "net" 
-import "html" 
+import "net/http"
+import "net"
+import "html"
 import "net/rpc"
 import "net/rpc/jsonrpc"
 import "log"
@@ -26,6 +27,7 @@ import "database/sql"
 import "github.com/mdlayher/arp"
 import ( _ "github.com/mattn/go-sqlite3" )
 
+var precision uint = 256
 var interpreter_debug = false
 var interpreter_trace = false
 var traceProg = false
@@ -63,7 +65,7 @@ type Thingy struct {
 	immutable		bool
 	share_parent_environment	bool			//Instead of creating a new lexical pad (environment to store variables), use the surrounding lexical environment.  This allows e.g. if statements to affect variables in the surrounding function
 	no_environment	bool						//AKA macro.  Instead of using its own lexical environment, this function will use the lexical environment that it is INVOKED in.  Required for doing complicated bind operations, probably a bad idea for anything else
-	
+
 }
 
 type stack []*Thingy
@@ -85,12 +87,12 @@ type Engine struct {
 
 func (t *Thingy) setString (val string) {
 	t._stringVal=val
-	t._source=val	
+	t._source=val
 }
 func (t *Thingy) setStub (val StepFunc) {
 	t._stub=val
 	t._source="A function added by setStub"
-	t._note="A function added by setStub"		
+	t._note="A function added by setStub"
 }
 
 
@@ -107,17 +109,17 @@ func (t *Thingy) getSource () string {
 		for _,el := range t._arrayVal { accum=fmt.Sprintf("%v %v", accum, el._source)}
 		return fmt.Sprintf("%v ]", accum)
 	}
-	
+
 	if t.tiipe == "HASH"  {
 		var accum string = "H[ "
 		for k,v := range t._hashVal { accum=fmt.Sprintf("%s %s %s", accum, k, v.getSource())}
 		return fmt.Sprintf("%v ]H", accum)
 	}
-	
+
 // 		if t.tiipe == "STRING" {
 // 		return fmt.Sprintf("STRING [ %v ]", t._stringVal)
 // 	}
-	
+
 	return t._source
 }
 
@@ -134,10 +136,10 @@ func (t *Thingy) getString () string {
 		}
 		return accum
 	}
-	
+
   	if t.tiipe == "CODE" || t.tiipe == "LAMBDA" {
   		var accum string = ""
-  		for i,el := range t._arrayVal { 
+  		for i,el := range t._arrayVal {
 			if i==0 {
 				accum=fmt.Sprintf("%v",  el.getString())
 		} else {
@@ -146,13 +148,13 @@ func (t *Thingy) getString () string {
 		}
   		return  accum
   	}
-  	
+
   	if t.tiipe == "HASH"  {
 		var accum string = "{ "
 		for k,v := range t._hashVal { accum=fmt.Sprintf("%s, %s -> %s", accum, k, v.getString())}
 		return fmt.Sprintf("%v }", accum)
 	}
-	
+
 	if t.tiipe == "BOOLEAN"  {
 		if t._intVal == 0 {
 			return "FALSE"
@@ -160,7 +162,7 @@ func (t *Thingy) getString () string {
 			return "TRUE"
 		}
 	}
-	
+
 	return t._stringVal
 }
 
@@ -185,7 +187,7 @@ func cloneEngine(t *Engine, immutable bool) *Engine {
 		newt.environment=t.environment
 	}
 	//newt.previousEngine=t  //This is a memory leak
-	
+
 	return newt
 }
 
@@ -198,7 +200,7 @@ func nameSpaceLookup(e *Engine, t *Thingy) (*Thingy, bool) {
 	if  !ok {
 	var _,ok = strconv.ParseFloat( t.getSource() , 32 )		//Numbers don't need to be defined in the namespace
 	if  ok != nil {
-		if e._safeMode { fmt.Printf("Warning: %v not defined at line %v\n", key, t._line) }		
+		if e._safeMode { fmt.Printf("Warning: %v not defined at line %v\n", key, t._line) }
 	}
 	}
 	return val,ok
@@ -237,7 +239,7 @@ func newThingy () *Thingy {
 		ne.dataStack=pushStack(ne.dataStack, c)
 		return ne
 	}
-		
+
 	return t
 }
 
@@ -250,10 +252,10 @@ func tokenStepper (e *Engine,c *Thingy) *Engine {
 		//Are we in function-building mode?
 		ne._prevLevel=ne._funcLevel
 		if(c.getSource()=="[") { ne._funcLevel-=1}		//Finish a (possibly nested) function
-		if(c.getSource()=="]") { 
+		if(c.getSource()=="]") {
 			//fmt.Printf("Cached func: %v - %v, %v\n", c._id, ne._functionCache[c._id], c.getSource())
 			if USE_FUNCTION_CACHE && ne._functionCache[c._id] != nil {
-				
+
 				f := ne._functionCache[c._id]
 				//fmt.Printf("Cached func: %v - %v\n", c._id, f.getSource())
 				//We have previously seen this function, and have it cached
@@ -278,7 +280,7 @@ func tokenStepper (e *Engine,c *Thingy) *Engine {
 			fmt.Printf ("Unmatched [ at line %v\n", c._line)
 			engineDump(ne)
 			panic(fmt.Sprintf ("Unmatched [ at line %v\n", c._line))
-			
+
 		}	//Too many close functions, not enough opens
 		if (ne._funcLevel==0) {							//Either we are not building a function, or we just finished
 			if(c.getSource()=="BuildFuncFromStack") {	//We move to phase 2, assembling the function from pieces on the data stack
@@ -291,7 +293,7 @@ func tokenStepper (e *Engine,c *Thingy) *Engine {
 				val,ok := nameSpaceLookup(ne, c)
 				if (ok) {
 					if val.tiipe == "CODE" {
-						
+
 						ne.codeStack = pushStack(ne.codeStack, val)
 						ne.lexStack = pushStack(ne.lexStack, e.environment)
 					} else {
@@ -300,23 +302,23 @@ func tokenStepper (e *Engine,c *Thingy) *Engine {
 				} else {
 					var _,ok = strconv.ParseFloat( c.getSource() , 32 )		//Numbers don't need to be defined in the namespace
 					if  ok != nil {
-						//fmt.Printf("Warning:  %v not defined\n", c.getString()) 
-						
+						//fmt.Printf("Warning:  %v not defined\n", c.getString())
+
 					}
 					ne.dataStack = pushStack(ne.dataStack, c)
-				}	
+				}
 			}
 		} else {
 			ne.dataStack = pushStack(ne.dataStack, c)
 		}
 		//fmt.Printf("TokenStep: %v\n", c._source)
 	return ne}
-	
-	
+
+
 //Tokens cause a namespace lookup on their string value
 //Whatever gets returned is pushed onto the code stack
 //Then on the next step, that Thing gets activated, usually moving itself to the data stack, or running some code
-//This can cause infinite loops if the token resolves to itself 
+//This can cause infinite loops if the token resolves to itself
 func NewToken (aString string, env *Thingy) *Thingy {
 	t := newThingy()
 	t.tiipe="TOKEN"
@@ -329,7 +331,7 @@ func NewToken (aString string, env *Thingy) *Thingy {
 }
 
 
-//Raw byte representated.  
+//Raw byte representated.
 func NewBytes (bytes []byte,  env *Thingy) *Thingy {
 	t := newThingy()
 	t.tiipe="BYTES"
@@ -410,7 +412,7 @@ func NewHash () *Thingy {
 	t.subType="NATIVE"
 	t.setString("hash - add code to fill this in properly")
 	t.arity=-1
-	t._hashVal = make(map[string]*Thingy, 1000) 
+	t._hashVal = make(map[string]*Thingy, 1000)
 	return t
 }
 
@@ -444,7 +446,7 @@ func popStack (s stack) (*Thingy, stack) {
 		v, sret := s[len(s)-1], s[:len(s)-1]
 		return v, sret
 	} else {
-		
+
 		panic("Attempted read past end of stack!")
 	}
 }
@@ -463,13 +465,13 @@ func dumpEnv ( e *Thingy ) {
 
 //The core of the interpreter.  Each step advances the program by one command
 func doStep(e *Engine) (*Engine, bool) {
-	
+
 	if len(e.codeStack)>0 {											//If there are any instructions left
 		var v, lex *Thingy
         var dyn stack
 		//v, _ = popStack(e.codeStack)
-		ne := cloneEngine(e, false)								//Clone the current engine state.  The false means "do not clone the lexical environment" i.e. it 	
-																//will be common to this step and the previous step.  Otherwise we would be running in fully 
+		ne := cloneEngine(e, false)								//Clone the current engine state.  The false means "do not clone the lexical environment" i.e. it
+																//will be common to this step and the previous step.  Otherwise we would be running in fully
 																//immutable mode (to come)
 		v, ne.codeStack = popStack(ne.codeStack)							//Pop an instruction off the instruction stack.  Usually a token, but could be data or native code
 		lex, ne.lexStack = popStack(ne.lexStack)
@@ -480,12 +482,12 @@ func doStep(e *Engine) (*Engine, bool) {
 				m=make([]int, 1000000,1000000)}
 				m[v._line] = m[v._line]+1
 				ne._heatMap[v._filename] = m
-				
+
 		}
-		
+
 		if interpreter_debug && v.environment != nil {dumpEnv(v.environment)}
-		
-		
+
+
 		if    v.tiipe == "CODE" && v.no_environment == true {							//Macros do not carry their own environment, they use the environment from the previous instruction
 			if interpreter_debug {
 				fmt.Printf("Macro using invoked environment")
@@ -498,16 +500,16 @@ func doStep(e *Engine) (*Engine, bool) {
             ne.dyn = dyn
 			}
 		}
-		
+
 		//ne.environment = lex
-		if traceProg { 
+		if traceProg {
 			fmt.Printf("%v:Step: %v(%v) - (%p) \n", v._line, v.getString(), v.tiipe, lex)
 		}
 		//fmt.Printf("Calling: '%v'\n", v.getString())
 		if interpreter_debug {
 			fmt.Printf("Choosing environment %p for command %v(%v)\n", ne.environment, v.getString(), ne.environment)
 		}
-		
+
 		oldlen:= len(ne.dataStack)								//Note the size of the data stack
 		if interpreter_debug {
 			fmt.Printf("Using environment: %p for command : %v\n", ne.environment, v.getString())
@@ -522,7 +524,7 @@ func doStep(e *Engine) (*Engine, bool) {
 			} else {
 				if v.tiipe == "CODE" {
 				fmt.Println(fmt.Sprintf("Arity mismatch in native function! %v claimed %v, but actually took %v\n", v.getString(), v.arity, (oldlen-newlen)))
-				
+
 				}
 				return ne, true
 			}
@@ -546,7 +548,7 @@ func tokenise (s string, filename string) stack {
 	s=strings.Replace(s, "\t", " ", -1)
 	stringBits := strings.Split(s, " ")
 	var tokens  stack
-	for _,v :=range stringBits { 
+	for _,v :=range stringBits {
 		seqID=seqID+1
 		if len(v)>0 {
 			if v== "LINEBREAKHERE" {
@@ -557,7 +559,7 @@ func tokenise (s string, filename string) stack {
 			t._line = line
 			t._filename = filename
 			//fmt.Printf("Token id: %v\n", i)
-			tokens=pushStack(tokens, t) 
+			tokens=pushStack(tokens, t)
 			}
 		}
 		}
@@ -566,11 +568,11 @@ func tokenise (s string, filename string) stack {
 
 func StringsToTokens (stringBits []string) stack {
 	var tokens  stack
-	for i,v :=range stringBits { 
+	for i,v :=range stringBits {
 		if len(v)>0 {
 						t := NewToken(v,NewHash())
 			t._id=i
-			tokens=pushStack(tokens, t) 
+			tokens=pushStack(tokens, t)
 		}
 	}
 	return tokens
@@ -585,7 +587,7 @@ func engineDump (e *Engine) {
 		fmt.Printf("|| data: ")
 		stackDump(e.dataStack)
 		fmt.Printf("\n")
-		fmt.Printf("=========================================================================\n")	
+		fmt.Printf("=========================================================================\n")
 }
 func run (e *Engine) (*Engine, bool) {
 	ok := true
@@ -601,7 +603,7 @@ func (e *Engine) Run() (*Engine){
 }
 
 func (e *Engine) LoadTokens (s stack)  {
-	for _, elem := range s { 
+	for _, elem := range s {
 		elem.environment = e.environment
 		e.lexStack = pushStack(e.lexStack, e.environment)
 	}  //All tokens start off sharing the root environment
@@ -640,7 +642,7 @@ func (e *Engine) RunFile (s string) (*Engine) {
 
 func stackDump (s stack) {
 	fmt.Printf("\nStack: ")
-	for i, _:= range s { 
+	for i, _:= range s {
 		if  i< 20 {
 			fmt.Printf(":%v(%v):", s[len(s)-1-i].getSource(), s[len(s)-1-i].tiipe)}
 	}
@@ -666,7 +668,7 @@ func buildFuncStepper (e *Engine,c *Thingy) *Engine {
 				}
 				//var newArr stack
 				//copy(newArr,c._arrayVal)
-				for _,ee := range c._arrayVal { 
+				for _,ee := range c._arrayVal {
 					//t := clone(ee)
 					//t.environment = lexical_env
 					ne.codeStack = pushStack(ne.codeStack, ee)
@@ -683,9 +685,9 @@ func buildFunc(e *Engine, f stack) *Engine {
 	ne:=cloneEngine(e, false)
 	v,ne.dataStack=popStack(ne.dataStack)
 	if(v.getSource()=="[") { ne._funcLevel+=1}
-	if(v.getSource()=="]") { ne._funcLevel-=1}  
+	if(v.getSource()=="]") { ne._funcLevel-=1}
 	//fmt.Printf("BUILDFUNC: in function level: %v\n", ne._funcLevel)
-	//fmt.Printf("Considering %v\n", v.getSource())			
+	//fmt.Printf("Considering %v\n", v.getSource())
 	if ( v.getSource()=="]" && ne._funcLevel==0) {
 		//fmt.Printf("fINISHING FUNCTION\n")
 		//This code is called when the newly-built function is activated
@@ -698,7 +700,7 @@ func buildFunc(e *Engine, f stack) *Engine {
 		if USE_FUNCTION_CACHE && v._id > 0 {
 		newFunc.codeStackConsume = len(f)
 		ne._functionCache[v._id] = newFunc
-		
+
 		//fmt.Printf("Caching new function of length %v, id %v\ncache %v", newFunc.codeStackConsume, v._id, ne._functionCache)
 		}
 		return ne
@@ -714,24 +716,24 @@ func buildFunc(e *Engine, f stack) *Engine {
 
 
 	func (t *TagResponder) Eval(args *Args, reply *StatusReply) error {
-			
+
 			code := args.A
-	
+
 			var en = MakeEngine()
 			en = en.RunFile("bootstrap.lib")
 			fmt.Printf("code: %v\n", code)
-			
+
 			en = en.RunString(code, "eval")
 			var ret, _ = popStack(en.dataStack)
-			
+
 			var rethash = map[string]string{}
 			rethash["test"]="worked"
 			rethash["retval"]=ret.getSource()
 			//fmt.Printf("return hash: %v\n", ret)
 			for k,v := range ret._hashVal { rethash[k]=v.getString() }
-	
-			
-	
+
+
+
 	reply.Answer = rethash
 	//reply.TagsToFilesHisto, reply.TopTags = sumariseDatabase()
 	fmt.Println("Status handler complete")
@@ -745,9 +747,9 @@ type Args struct {
 type StatusReply struct {
 	Answer map[string]string
 }
-		
-		
-		
+
+
+
 type TagResponder int
 
 // NewRPCRequest returns a new rpcRequest.
@@ -803,7 +805,7 @@ func (r *rpcRequest) Call() io.Reader {
 	log.Println("Returning")
 	return r.rw
 }
-				
+
 func rpc_server(serverAddress string) {
 	arith := new(TagResponder)
 
@@ -845,63 +847,63 @@ func rpc_server(serverAddress string) {
 
 }
 
-		
-		
+
+
 //Creates a new engine and populates it with the core functions
 func MakeEngine() *Engine{
-	
+
 	e:=NewEngine()
-	
+
 		e=add(e, "IDEBUGOFF", NewCode("IDEBUGOFF", 0, func (e *Engine,c *Thingy) *Engine {
 			interpreter_debug = false
 		return e}))
-		
+
 		e=add(e, "IDEBUGON", NewCode("IDEBUGON", 0, func (e *Engine,c *Thingy) *Engine {
 			interpreter_debug = true
 		return e}))
-		
+
 		e=add(e, "FORCEGC", NewCode("FORCEGC", 0, func (e *Engine,c *Thingy) *Engine {
 			runtime.GC()
 		return e}))
-		
-		
+
+
 		e=add(e, "DEBUGOFF", NewCode("DEBUGOFF", 0, func (e *Engine,c *Thingy) *Engine {
 			debug = false
 		return e}))
-		
+
 		e=add(e, "DEBUGON", NewCode("DEBUGOFF", 0, func (e *Engine,c *Thingy) *Engine {
 			debug = true
 		return e}))
-		
-		
+
+
 		e=add(e, "TROFF", NewCode("TROFF", 0, func (e *Engine,c *Thingy) *Engine {
 			traceProg = false
 		return e}))
-		
+
 		e=add(e, "TRON", NewCode("TRONS", 0, func (e *Engine,c *Thingy) *Engine {
 			traceProg = true
 		return e}))
-		
+
 		e=add(e, "ITROFF", NewCode("ITROFF", 0, func (e *Engine,c *Thingy) *Engine {
 			interpreter_trace = false
 		return e}))
-		
+
 		e=add(e, "ITRON", NewCode("ITROFF", 0, func (e *Engine,c *Thingy) *Engine {
 			interpreter_trace = true
 		return e}))
-		
+
 	e=add(e, "NULLSTEP", NewCode("NullStep", 0, func (e *Engine,c *Thingy) *Engine {
 		fmt.Printf("NullStep\n")
 		return e}))
-	
+
 	e=add(e, "DROP", NewCode("DROP", 1, func (ne *Engine,c *Thingy) *Engine {
 		_, ne.dataStack = popStack(ne.dataStack)
 		return ne}))
-	
+
 		e=add(e, "ZERO",  NewCode("ZERO", -1, func (ne *Engine,c *Thingy) *Engine {
 		ne.dataStack=pushStack(ne.dataStack,NewString("0", e.environment))
 		return ne}))
-		
+
 	e=add(e, "ROLL",  NewCode("ROLL", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -911,7 +913,7 @@ func MakeEngine() *Engine{
 		ne.dataStack = append( ne.dataStack[:n],ne.dataStack[n+1:]...)
 		ne.dataStack = pushStack(ne.dataStack, v)
 		return ne}))
-	
+
 	e=add(e, "PICK",  NewCode("PICK", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -920,7 +922,7 @@ func MakeEngine() *Engine{
 		v := ne.dataStack[n]
 		ne.dataStack = pushStack(ne.dataStack, v)
 		return ne}))
-	
+
 	e=add(e, "NUM2CHAR",  NewCode("NUM2CHAR", 0, func (ne *Engine,c *Thingy) *Engine {
 		var v, el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -928,7 +930,7 @@ func MakeEngine() *Engine{
 		v = NewString(fmt.Sprintf("%c", n), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, v)
 		return ne}))
-	
+
 	e=add(e, "GETLINE",  NewCode("GETLINE", 0, func (ne *Engine,c *Thingy) *Engine {
 		var v *Thingy
 		bio := bufio.NewReader(os.Stdin)
@@ -939,48 +941,48 @@ func MakeEngine() *Engine{
 
 	e=add(e, "OPENFILE",  NewCode("OPENFILE", -1, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
-		
+
 		el1, ne.dataStack = popStack(ne.dataStack)
 		f,err := os.Open(el1.getString())
         if ( ! (err == nil) ) {
-            return ne.RunString(fmt.Sprintf("THROW [ Could not open file %v: %v ] ", el1.getString(), err), "Internal Error") 
+            return ne.RunString(fmt.Sprintf("THROW [ Could not open file %v: %v ] ", el1.getString(), err), "Internal Error")
         }
-		
+
 		reader := bufio.NewReaderSize(f, 999999)
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(f))
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(reader))
         return ne}))
-	
+
 	e=add(e, "OPENSQLITE",  NewCode("OPENSQLITE", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
-		
+
 		el1, ne.dataStack = popStack(ne.dataStack)
 		db, err := sql.Open("sqlite3", el1.getString())
 		if err != nil {
 			log.Fatal(err)
 		}
-		
+
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(db))
 		return ne}))
-	
-	
-		
-	
+
+
+
+
 	e=add(e, "QUERY",  NewCode("QUERY", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el1, querystring *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
 		querystring, ne.dataStack = popStack(ne.dataStack)
 		db := el1._structVal.(*sql.DB)
 		str := querystring.getString()
-		
+
 		rows, err := db.Query(str)
-		
+
 		if err != nil {
 			fmt.Printf("Error: Reading from table %v", err)
 		}
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(rows))
 		return ne}))
-	
+
 		e=add(e, "EXEC",  NewCode("EXEC", 3, func (ne *Engine,c *Thingy) *Engine {
 		var el1, querystring,wrappedArgs *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -991,27 +993,27 @@ func MakeEngine() *Engine{
 		for _,v := range wrappedArgs._arrayVal {
 			stringArgs = append(stringArgs, v.getString())
 		}
-		
+
 		_,err := db.Exec(querystring.getString(), stringArgs...)
-		
+
 		if err != nil {
 			fmt.Printf("Error: exec failed: %v", err)
 		}
 		return ne}))
-	
+
 		e=add(e, "NEXTROW",  NewCode("NEXTROW", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
 		rows := el1._structVal.(*sql.Rows)
-	
-		rows.Next() 
+
+		rows.Next()
 			var name string
 			rows.Scan(&name)
-			
+
 			    cols, err := rows.Columns()
     if err != nil {
         fmt.Println("Failed to get columns", err)
-        
+
     }
 
     // Result is your slice string.
@@ -1023,11 +1025,11 @@ func MakeEngine() *Engine{
         dest[i] = &rawResult[i] // Put pointers to each string in the interface slice
     }
 
-    rows.Next() 
+    rows.Next()
         err = rows.Scan(dest...)
         if err != nil {
             fmt.Println("Failed to scan row", err)
-            
+
         }
 
         for i, raw := range rawResult {
@@ -1040,42 +1042,42 @@ func MakeEngine() *Engine{
 			h:= NewHash()
 			for i,v := range result {
 				h._hashVal[cols[i]] = NewString(v,e.environment)
-				
+
 			}
 
 			ne.dataStack = pushStack(ne.dataStack, h)
 		return ne}))
-	
-		
-			
-	
+
+
+
+
 	e=add(e, "CLOSEFILE",  NewCode("CLOSEFILE", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
-		
+
 		el1, ne.dataStack = popStack(ne.dataStack)
 		f := el1._structVal.(*os.File)
 		f.Close()
 		return ne}))
-	
+
 	e=add(e, "MMAPFILE",  NewCode("MMAPFILE", -1, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
-		
+
 		el1, ne.dataStack = popStack(ne.dataStack)
 		f,_ := os.OpenFile(el1.getString(), os.O_RDWR, 0644)
 		//info, _ :=os.Lstat(el1.getString())
 		b, err := mmap.Map(f, mmap.RDWR, 0)
 		if err != nil {
 			fmt.Printf("mmap failed: %v\n", err)
-			
+
 		}
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(f))
 		bt := NewBytes(b, el1.environment)
 		bt._structVal = f
 		ne.dataStack = pushStack(ne.dataStack, bt)
 		return ne}))
-	
-	
-	
+
+
+
 	e=add(e, "RUNSTRING",  NewCode("RUNSTRING", 9001, func (ne *Engine,c *Thingy) *Engine {
 		var el1,env  *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -1083,7 +1085,7 @@ func MakeEngine() *Engine{
 		ne.environment = env
 		ne = ne.RunString(el1.getString(), "runstring")
 		return ne}))
-	
+
 		e=add(e, "READFILELINE",  NewCode("READFILELINE", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -1097,8 +1099,8 @@ func MakeEngine() *Engine{
 		}
 		ne.dataStack = pushStack(ne.dataStack, v)
 		return ne}))
-	
-	
+
+
 		e=add(e, "THIN",  NewCode("THIN", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -1106,7 +1108,7 @@ func MakeEngine() *Engine{
 		el2.share_parent_environment = true
 		ne.dataStack = pushStack(ne.dataStack, el2)
 		return ne}))
-		
+
 		e=add(e, "MACRO",  NewCode("MACRO", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -1116,7 +1118,7 @@ func MakeEngine() *Engine{
 		el2.environment = nil
 		ne.dataStack = pushStack(ne.dataStack, el2)
 		return ne}))
-		
+
 		e=add(e, "CALL",  NewCode("CALL", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
@@ -1128,29 +1130,29 @@ func MakeEngine() *Engine{
 		ne.lexStack = pushStack(ne.lexStack, ne.environment)
 		//engineDump(ne)
 		return ne}))
-		
-		
+
+
 	e=add(e, "EMIT",  NewCode("EMIT", 1, func (ne *Engine,c *Thingy) *Engine {
 		var v *Thingy
 		v, ne.dataStack = popStack(ne.dataStack)
 		fmt.Printf("%v", v.getString())
 		return ne}))
-		
-	
+
+
 	e=add(e, "PRINTLN",  NewCode("PRINTLN", 1, func (ne *Engine,c *Thingy) *Engine {
 		var v *Thingy
 		v, ne.dataStack = popStack(ne.dataStack)
 		//fmt.Printf("printing type: %v\n", v.tiipe)
 		fmt.Printf("%v\n", v.getString())
 		return ne}))
-	
-	
+
+
 	e=add(e, "]",  NewCode("StartFunctionDef", 0, func (ne *Engine,c *Thingy) *Engine {
 		ne._buildingFunc=true
 		ne.dataStack=pushStack(ne.dataStack,c)
 		return ne}))
-	
-	
+
+
 	e=add(e, "[",  NewCode("BuildFuncFromStack", 9001, func (ne *Engine,c *Thingy) *Engine {
 		ne._funcLevel+=1
 		var f stack
@@ -1158,8 +1160,8 @@ func MakeEngine() *Engine{
 		newFunc, _ := popStack(ne.dataStack)
 		newFunc.environment = ne.environment
 		return ne}))
-	
-	
+
+
 	e=add(e, "DIRECTORY-LIST",  NewCode("DIRECTORY-LIST", -1, func (ne *Engine,c *Thingy) *Engine {
 		var dir []os.FileInfo
 		dir,_ = ioutil.ReadDir("./")
@@ -1168,7 +1170,7 @@ func MakeEngine() *Engine{
 		c=NewArray(f)
 		ne.dataStack=pushStack(ne.dataStack, c)
 		return ne}))
-	
+
 	e=add(e, "SPLIT",  NewCode("SPLIT", 2, func (ne *Engine,c *Thingy) *Engine {
 		var aString, aSeparator, aCount *Thingy
 		aString, ne.dataStack =popStack(ne.dataStack)
@@ -1181,11 +1183,11 @@ func MakeEngine() *Engine{
 		c=NewArray(f)
 		ne.dataStack=pushStack(ne.dataStack, c)
 		return ne}))
-	
+
 	e=add(e, "SAFETYON", NewCode("SAFETYON", 2, func (ne *Engine,c *Thingy) *Engine {
 			ne._safeMode= true
 		return ne}))
-		
+
 	e=add(e, ":", NewCode(":", 2, func (ne *Engine,c *Thingy) *Engine {
 		var aName, aVal *Thingy
 				defer func() {
@@ -1201,11 +1203,11 @@ func MakeEngine() *Engine{
 		if interpreter_debug {
 			fmt.Printf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString())
 		}
-		 
+
 		prev, ok :=env._hashVal[aName.getString()]
 		if ok  {
-			if e._safeMode { 
-				fmt.Printf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.getString(), aName._filename, aName._line, prev.getString())  
+			if e._safeMode {
+				fmt.Printf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.getString(), aName._filename, aName._line, prev.getString())
 				os.Exit(1)
 			}
 		}
@@ -1218,7 +1220,7 @@ func MakeEngine() *Engine{
 		if ! (checkVal == aVal) {panic("bind name failed!")}
 		if checkVal == nil {panic("bind name failed!")}
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
-		
+
 		return ne}))
 
 	e=add(e, "REBIND", NewCode(":", 2, func (ne *Engine,c *Thingy) *Engine {
@@ -1230,18 +1232,18 @@ func MakeEngine() *Engine{
 			os.Exit(1)
         }
     }()
-	
+
 		aName, ne.dataStack =popStack(ne.dataStack)
 		aVal, ne.dataStack =popStack(ne.dataStack)
 		env:=aName.environment
 		if interpreter_debug {
 			fmt.Printf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString())
 		}
-		
+
 		_, ok :=env._hashVal[aName.getString()]
 		if !ok  {
-			if e._safeMode { 
-				fmt.Printf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.getString(), aName._line) 
+			if e._safeMode {
+				fmt.Printf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.getString(), aName._line)
 				os.Exit(1)
 			}
 		}
@@ -1251,7 +1253,7 @@ func MakeEngine() *Engine{
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
 		return ne}))
 
-	
+
 	e=add(e, "ENVIRONMENTOF", NewCode("ENVIRONMENTOF", 0, func (ne *Engine,c *Thingy) *Engine {
 		var aName, aVal *Thingy
 		aName, ne.dataStack =popStack(ne.dataStack)
@@ -1259,11 +1261,11 @@ func MakeEngine() *Engine{
 			fmt.Printf("Environment: %p - Storing %v in %v\n", aName.environment, aVal.getString(), aName.getString())
 		}
 		ne.dataStack=pushStack(ne.dataStack, ne.environment)
-		
+
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
 		return ne}))
-	
-	
+
+
 	e=add(e, "LOCATIONOF", NewCode("LOCATIONOF", 0, func (ne *Engine,c *Thingy) *Engine {
 		var  aVal *Thingy
 		aVal, ne.dataStack =popStack(ne.dataStack)
@@ -1272,11 +1274,11 @@ func MakeEngine() *Engine{
 		}
 		H := NewString(fmt.Sprintf("%v", aVal._line), c.environment)
 		ne.dataStack=pushStack(ne.dataStack, H)
-		
+
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
 		return ne}))
-	
-	
+
+
 	e=add(e, "SETLEX", NewCode("SETLEX", 2, func (ne *Engine,c *Thingy) *Engine {
 		var aName, aVal *Thingy
 		aName, ne.dataStack =popStack(ne.dataStack)
@@ -1288,7 +1290,7 @@ func MakeEngine() *Engine{
 		if !ok {panic("key not found in environment after set")}
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
 		return ne}))
-	
+
 	e=add(e, "SCRUBLEX", NewCode("SCRUBLEX", 1, func (ne *Engine,c *Thingy) *Engine {
 		var aName *Thingy
 		aName, ne.dataStack =popStack(ne.dataStack)
@@ -1301,47 +1303,47 @@ func MakeEngine() *Engine{
 		if ok {panic("key found in environment after set")}
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
 		return ne}))
-	
-	
-	
+
+
+
 	e=add(e, "GETLEX", NewCode("GETLEX", 0, func (ne *Engine,c *Thingy) *Engine {
 		var aName *Thingy
 		aName, ne.dataStack =popStack(ne.dataStack)
 		//fmt.Printf("Fetching %v\n", aName.getString())
-		
+
 		aVal, ok :=ne.environment._hashVal[aName.getString()]
 		if !ok {
 			for k,v := range ne.environment._hashVal {fmt.Printf("%v: %v\n", k,v)}
 			fmt.Println("key not found "   , aName.getString())
 			panic("Key not found error")
 		}
-			
+
 		ne.dataStack = pushStack(ne.dataStack, aVal)
 		return ne}))
-	
-	
+
+
 	e=add(e, "EQUAL", NewCode("EQUAL", 1, func (ne *Engine,c *Thingy) *Engine {
 		var aVal,bVal *Thingy
 		aVal, ne.dataStack =popStack(ne.dataStack)
 		bVal, ne.dataStack =popStack(ne.dataStack)
-		
+
 		if (aVal.getString() == bVal.getString()) {
 			ne.dataStack = pushStack(ne.dataStack, NewBool(1))
 		} else {
 			ne.dataStack = pushStack(ne.dataStack, NewBool(0))
 		}
 		return ne}))
-	
-	
+
+
 	e=add(e, "IF", NewCode("IF", 3, func (ne *Engine,c *Thingy) *Engine {
 		var testVal, trueBranch, falseBranch *Thingy
 		testVal, ne.dataStack =popStack(ne.dataStack)
 		trueBranch, ne.dataStack =popStack(ne.dataStack)
 		falseBranch, ne.dataStack =popStack(ne.dataStack)
-		
+
 		ne.codeStack = pushStack(ne.codeStack, NewToken("CALL", nil))
 		ne.lexStack= pushStack(ne.lexStack, ne.environment)
-			
+
 		if (testVal._intVal==1) {
 			ne.codeStack = pushStack(ne.codeStack, trueBranch)
 			ne.lexStack= pushStack(ne.lexStack, ne.environment)
@@ -1351,12 +1353,12 @@ func MakeEngine() *Engine{
 		}
 		//engineDump(ne)
 		return ne}))
-	
+
 	e=add(e, "NOT", NewCode("NOT", 0, func (ne *Engine,c *Thingy) *Engine {
 		var aVal *Thingy
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		aVal = clone(aVal)
-		
+
 		if aVal._intVal == 0 {
 			aVal._intVal = 1
 		} else {
@@ -1364,12 +1366,12 @@ func MakeEngine() *Engine{
 		}
 		ne.dataStack = pushStack(ne.dataStack, aVal)
 		return ne}))
-	
+
 	e=add(e, "LESSTHAN", NewCode("LESSTHAN", 1, func (ne *Engine,c *Thingy) *Engine {
 		var aVal,bVal *Thingy
 		aVal, ne.dataStack =popStack(ne.dataStack)
 		bVal, ne.dataStack =popStack(ne.dataStack)
-		
+
 		var a,_ = strconv.ParseFloat( aVal.getSource() , 32 )
 		var b,_ = strconv.ParseFloat( bVal.getSource() , 32 )
 		if (a < b) {
@@ -1378,48 +1380,48 @@ func MakeEngine() *Engine{
 			ne.dataStack = pushStack(ne.dataStack, NewBool(0))
 		}
 		return ne}))
-	    
-	
+
+
 	e=add(e, "THREAD", NewCode("THREAD", 1, func (ne *Engine,c *Thingy) *Engine {
-		
+
 		var  threadBranch *Thingy
 		threadBranch, ne.dataStack =popStack(ne.dataStack)
-		
-		
+
+
 		ne2:=cloneEngine(ne, true)
 		ne2.codeStack=stack{}
 		ne2.lexStack=stack{}
 		ne2.dataStack=stack{}
-		
+
 		ne2.codeStack = pushStack(ne2.codeStack, NewToken("CALL", ne.environment))
 		ne2.lexStack = pushStack(ne2.lexStack, ne.environment)
-		
+
 		ne2.codeStack = pushStack(ne2.codeStack, threadBranch)
 		ne2.lexStack = pushStack(ne2.lexStack, ne.environment)
 		go func () {run(ne2)}()
-		
+
 		return ne}))
-	
-	
+
+
 	e=add(e, "SLEEP", NewCode("SLEEP", 1, func (ne *Engine,c *Thingy) *Engine {
 			var el1 *Thingy
 			el1, ne.dataStack = popStack(ne.dataStack)
 			n, _ := strconv.ParseInt( el1.getSource(), 10, 64 )
 			time.Sleep(time.Duration(n) * time.Millisecond)
 		return ne}))
-	
-	
+
+
 	e=add(e, "GETTYPE",  NewCode("GETTYPE", 0, func (ne *Engine,c *Thingy) *Engine {
 		var v *Thingy
 		v, ne.dataStack = popStack(ne.dataStack)
 		ne.dataStack = pushStack( ne.dataStack, NewString ( v.tiipe, e.environment ) )
 		return ne}))
-		
+
 	e=add(e, "SETTYPE",  NewCode("SETTYPE", 1, func (ne *Engine,c *Thingy) *Engine {
 		var t, el *Thingy
 		t, ne.dataStack = popStack(ne.dataStack)
 		el, ne.dataStack = popStack(ne.dataStack)
-		
+
 		targetType := t.getString()
 		el = clone(el)
 		if targetType == "STRING" && ( el.tiipe == "CODE" || el.tiipe == "LAMBDA"){
@@ -1440,29 +1442,29 @@ func MakeEngine() *Engine{
 		el.tiipe = targetType
 		ne.dataStack = pushStack(ne.dataStack, el  )
 		return ne}))
-	
+
 	e=add(e, "->BYTES",  NewCode("->BTES", 0, func (ne *Engine,c *Thingy) *Engine {
 		var t,el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		
+
 		 t = NewBytes([]byte(el.getString()), el.environment)
-		 
+
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
-	
+
 	e=add(e, "SPACE",  NewCode("SPACE", -1, func (ne *Engine,c *Thingy) *Engine {
 		ne.dataStack=pushStack(ne.dataStack,NewString(" ", e.environment))
 		return ne}))
-		
-	
+
+
 	e=add(e, ".S",  NewCode(".S", 0, func (e *Engine,c *Thingy) *Engine {
 		stackDump(e.dataStack)
 		return e}))
-	
+
 	e=add(e, ".C",  NewCode(".C", 0, func (e *Engine,c *Thingy) *Engine {
 		stackDump(e.codeStack)
 		return e}))
-	
+
 	e=add(e, ".L",  NewCode(".S", 0, func (e *Engine,c *Thingy) *Engine {
 		fmt.Println()
 		//stackDump(e.codeStack)
@@ -1470,31 +1472,31 @@ func MakeEngine() *Engine{
 		stackDump(e.lexStack)
 		fmt.Println()
 		return e}))
-	
+
 	e=add(e, ".E",  NewCode(".S", 0, func (e *Engine,c *Thingy) *Engine {
 		dumpEnv(e.environment)
 		dumpEnv(c.environment)
 		return e}))
-		
-		
+
+
 	e=add(e, "ARRAYPUSH",  NewCode("ARRAYPUSH", 1, func (ne *Engine,c *Thingy) *Engine {
 		var arr, el *Thingy
 		arr, ne.dataStack = popStack(ne.dataStack)
 		el, ne.dataStack = popStack(ne.dataStack)
 		newarr := clone(arr)
 		newarr._arrayVal = append(arr._arrayVal, el)
-		
+
 		ne.dataStack = pushStack(ne.dataStack, newarr  )
 		return ne}))
-	
+
 	e=add(e, "NEWARRAY",  NewCode("NEWARRAY", -1, func (ne *Engine,c *Thingy) *Engine {
 		var arr *Thingy
 		arr = NewArray(stack{})
 		ne.dataStack = pushStack(ne.dataStack, arr  )
 		return ne}))
-	
-	
-                  
+
+
+
     e=add(e, "POPARRAY",  NewCode("POPARRAY", -1, func (ne *Engine,c *Thingy) *Engine {
 		var arr, el *Thingy
 		arr, ne.dataStack = popStack(ne.dataStack)
@@ -1504,7 +1506,7 @@ func MakeEngine() *Engine{
 		ne.dataStack = pushStack(ne.dataStack, newarr)
 		ne.dataStack = pushStack(ne.dataStack, el)
 		return ne}))
-	
+
 	e=add(e, "SHIFTARRAY",  NewCode("SHIFTARRAY", -1, func (ne *Engine,c *Thingy) *Engine {
 		var arr*Thingy
 		arr, ne.dataStack = popStack(ne.dataStack)
@@ -1515,20 +1517,20 @@ func MakeEngine() *Engine{
 		ne.dataStack = pushStack(ne.dataStack, newarr)
 		ne.dataStack = pushStack(ne.dataStack, el)
 		return ne}))
-    
-	
+
+
 	e=add(e, "UNSHIFTARRAY",  NewCode("UNSHIFTARRAY", 1, func (ne *Engine,c *Thingy) *Engine {
 		var arr, el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		arr, ne.dataStack = popStack(ne.dataStack)
 		arr._arrayVal = append(stack{el},arr._arrayVal...)
-		
+
 		ne.dataStack = pushStack(ne.dataStack, arr  )
 		return ne}))
-	
+
 	e=add(e, "GETARRAY",  NewCode("GETARRAY", 1, func (ne *Engine,c *Thingy) *Engine {
 		var arr, el *Thingy
-		
+
 		defer func() {
         if r := recover(); r != nil {
             fmt.Printf("Array out of bounds in getarray: index %v\n", arr, el.getSource())
@@ -1540,24 +1542,24 @@ func MakeEngine() *Engine{
 		arr, ne.dataStack = popStack(ne.dataStack)
 		var n,_ = strconv.ParseInt( el.getSource(), 10, 64 )
 		ret := arr._arrayVal[n]
-		
+
 		ne.dataStack = pushStack(ne.dataStack, ret)
 		return ne}))
-	
+
 	e=add(e, "GETBYTE",  NewCode("GETBYTE", 1, func (ne *Engine,c *Thingy) *Engine {
 		var arr, el *Thingy
-		
+
 		el, ne.dataStack = popStack(ne.dataStack)
 		arr, ne.dataStack = popStack(ne.dataStack)
 		var n,_ = strconv.ParseInt( el.getSource(), 10, 32 )
 		ret := arr._bytesVal[n]
-		
+
 		ne.dataStack = pushStack(ne.dataStack, NewString(fmt.Sprintf("%c", ret), el.environment))
 		return ne}))
-	
+
 	e=add(e, "GETSTRING",  NewCode("GETSTRING", 1, func (ne *Engine,c *Thingy) *Engine {
 		var arr, el *Thingy
-		
+
 		el, ne.dataStack = popStack(ne.dataStack)
 		arr, ne.dataStack = popStack(ne.dataStack)
 		var n,_ = strconv.ParseInt( el.getSource(), 10, 32 )
@@ -1574,7 +1576,7 @@ func MakeEngine() *Engine{
 	/*
 	e=add(e, "SETSTRING",  NewCode("SETSTRING", 1, func (ne *Engine,c *Thingy) *Engine {
 		var arr, el, val *Thingy
-		
+
 		el, ne.dataStack = popStack(ne.dataStack)
 		val, ne.dataStack = popStack(ne.dataStack)
 		arr, ne.dataStack = popStack(ne.dataStack)
@@ -1591,13 +1593,13 @@ func MakeEngine() *Engine{
 		value, ne.dataStack = popStack(ne.dataStack)
 		arr, ne.dataStack = popStack(ne.dataStack)
 		var n,_ = strconv.ParseInt( index.getSource(), 10, 32 )
-		
+
 		newarr := clone(arr)
 		newarr._arrayVal = make(stack,len(arr._arrayVal),len(arr._arrayVal))
 		copy(newarr._arrayVal, arr._arrayVal)
-		
+
 		newarr._arrayVal[n] = value
-		
+
 		ne.dataStack = pushStack(ne.dataStack, newarr)
 		return ne}))
 
@@ -1605,26 +1607,26 @@ func MakeEngine() *Engine{
 		var arr, hash *Thingy
 		hash, ne.dataStack = popStack(ne.dataStack)
 		arr = NewArray(stack{})
-		for k,v := range hash._hashVal {   
+		for k,v := range hash._hashVal {
 			arr._arrayVal = append(arr._arrayVal, NewString(k, ne.environment), v)
 		}
-		
+
 		ne.dataStack = pushStack(ne.dataStack, arr  )
 		return ne}))
-	
-	
-                  
-                  
-	
+
+
+
+
+
 	e=add(e, "STRING-CONCATENATE",  NewCode("STRING-CONCATENATE", 1, func (ne *Engine,c *Thingy) *Engine {
 		var s1, s2 *Thingy
 		s1, ne.dataStack = popStack(ne.dataStack)
 		s2, ne.dataStack = popStack(ne.dataStack)
 		s3  := NewString(fmt.Sprintf("%s%s", s1.getString(),s2.getString()), ne.environment)
-		
+
 		ne.dataStack = pushStack(ne.dataStack, s3  )
 		return ne}))
-	
+
 	/*e=add(e, "SWAP",  NewCode("SWAP", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1633,23 +1635,30 @@ func MakeEngine() *Engine{
 		ne.dataStack = pushStack(ne.dataStack, el1  )
 		return ne}))
 		*/
-		
+
 	e=add(e, "ADD",  NewCode("ADD", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		var v1,_ = strconv.ParseFloat( el.getSource() , 32 )
-		var v2,_ = strconv.ParseFloat( el1.getSource() , 32 )
-		var t *Thingy = NewString(fmt.Sprintf("%v", v1+v2), e.environment)
+        var v1, v2  *big.Float
+        var v3 big.Float
+         v1,_,_ = big.ParseFloat( el.getSource(), 10, precision, big.ToZero  )
+        v1=v1.SetPrec(precision)
+        v2,_,_ = big.ParseFloat( el1.getSource(), 10, precision, big.ToZero )
+        v2=v2.SetPrec(precision)
+        v3.SetPrec(0)
+        v3=*v3.Add(v1,v2)
+
+		var t *Thingy = NewString(fmt.Sprintf("%v", v3.Text('g', int(precision))), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
-	
+
 	e=add(e, "FLOOR",  NewCode("FLOOR", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		
+
 		var v1,_ = strconv.ParseFloat( el.getSource() , 32 )
-		
+
 		var t *Thingy = NewString(fmt.Sprintf("%v", math.Floor(v1)), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
@@ -1664,8 +1673,8 @@ func MakeEngine() *Engine{
 		newhash._hashVal = cloneMap(hash._hashVal)
 		newhash._hashVal[key.getString()]=val
 		ne.dataStack = pushStack(ne.dataStack, newhash  )
-		return ne}))	
-	
+		return ne}))
+
 	e=add(e, "GETHASH",  NewCode("GETHASH", 1, func (ne *Engine,c *Thingy) *Engine {
 		var key, val, hash *Thingy
 		key, ne.dataStack = popStack(ne.dataStack)
@@ -1677,16 +1686,16 @@ func MakeEngine() *Engine{
 		}
 		ne.dataStack = pushStack(ne.dataStack, val  )
 		return ne}))
-	
+
 	e=add(e, "NEWHASH",  NewCode("NEWHASH", -1, func (ne *Engine,c *Thingy) *Engine {
 		var hash *Thingy = NewHash()
 		ne.dataStack = pushStack(ne.dataStack, hash  )
 		return ne}))
-	
-	
-				  
-				  
-	
+
+
+
+
+
 	e=add(e, "SUB",  NewCode("SUB", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1696,7 +1705,7 @@ func MakeEngine() *Engine{
 		var t *Thingy = NewString(fmt.Sprintf("%v", v1-v2), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
-		
+
 	e=add(e, "MULT",  NewCode("MULT", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1706,7 +1715,7 @@ func MakeEngine() *Engine{
 		var t *Thingy = NewString(fmt.Sprintf("%v", v1*v2), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
-	
+
 	e=add(e, "MODULO",  NewCode("MODULO", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1716,7 +1725,7 @@ func MakeEngine() *Engine{
 		var t *Thingy = NewString(fmt.Sprintf("%v", math.Mod(v1,v2)), el.environment)
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
-	
+
 
 	e=add(e, "LN",  NewCode("LN", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
@@ -1725,24 +1734,30 @@ func MakeEngine() *Engine{
 		var t *Thingy = NewString(fmt.Sprintf("%v", math.Log2(v1)), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t)
 		return ne}))
-			
 
-	
+
+
 		e=add(e, "DIVIDE",  NewCode("DIVIDE", 1, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		var v1,_ = strconv.ParseFloat( el.getSource() , 32 )
-		var v2,_ = strconv.ParseFloat( el1.getSource() , 32 )
-		var t *Thingy = NewString(fmt.Sprintf("%v", v1/v2), e.environment)
+        var v1, v2  *big.Float
+        var v3 big.Float
+         v1,_,_ = big.ParseFloat( el.getSource(), 10, precision, big.ToZero  )
+        v1=v1.SetPrec(precision)
+        v2,_,_ = big.ParseFloat( el1.getSource(), 10, precision, big.ToZero )
+        v2=v2.SetPrec(precision)
+        v3.SetPrec(0)
+        v3=*v3.Quo(v1,v2)
+		var t *Thingy = NewString(fmt.Sprintf("%v", v3.Text('g', int(precision))), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
-		
+
 	e=add(e, "TIMESEC",  NewCode("TIMESEC", -1, func (ne *Engine,c *Thingy) *Engine {
 		var t *Thingy = NewString(fmt.Sprintf("%v", int32(time.Now().Unix())), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t  )
 		return ne}))
-		
+
 		e=add(e, "TOK",  NewCode("TOK", -1, func (ne *Engine,c *Thingy) *Engine {
 		var el,lex *Thingy
 		el, ne.codeStack = popStack(ne.codeStack)
@@ -1751,8 +1766,8 @@ func MakeEngine() *Engine{
 		el1.environment = lex
 		ne.dataStack = pushStack(ne.dataStack, el1)
 		return ne}))
-		
-		
+
+
 		e=add(e, "GETFUNCTION",  NewCode("GETFUNCTION", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1764,21 +1779,51 @@ func MakeEngine() *Engine{
 		}
 		//stackDump(ne.dataStack)
 		return ne}))
-		
-		
-		
 
-		
+
+
+
+
 	e=add(e, "RPCSERVER",  NewCode("RPCSERVER", 0, func (ne *Engine,c *Thingy) *Engine {
 		rpc_server("127.0.0.1:80")
 		return ne}))
-	
-	
+
+		e=add(e, "OPENSOCKET",  NewCode("OPENSOCKET", 1, func (ne *Engine,c *Thingy) *Engine {
+			var server, port *Thingy
+			server, ne.dataStack = popStack(ne.dataStack)
+			port, ne.dataStack = popStack(ne.dataStack)
+      conn, err := net.Dial("tcp", fmt.Sprintf("%v:%v", server.getString(), port.getString()))
+			fmt.Printf("%v",err)
+			t := NewWrapper(conn)
+			ne.dataStack = pushStack(ne.dataStack, t)
+			return ne
+}))
+
+e=add(e, "PRINTSOCKET",  NewCode("PRINTSOCKET", 2, func (ne *Engine,c *Thingy) *Engine {
+	var message, conn *Thingy
+	message, ne.dataStack = popStack(ne.dataStack)
+	conn, ne.dataStack = popStack(ne.dataStack)
+  fmt.Fprintf(conn._structVal.(io.Writer), message.getString())
+	return ne
+}))
+
+
+e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thingy) *Engine {
+	var server *Thingy
+	server, ne.dataStack = popStack(ne.dataStack)
+  var conn net.Conn
+	conn = server._structVal.(net.Conn)
+  message, _ := bufio.NewReader(conn).ReadString('\n')
+	ret := NewString(message,ne.environment)
+	ne.dataStack = pushStack(ne.dataStack, ret)
+	return ne
+}))
+
 	e=add(e, "HTTPSERVER",  NewCode("HTTPSERVER", 0, func (ne *Engine,c *Thingy) *Engine {
 		var path, callback *Thingy
 		path, ne.dataStack = popStack(ne.dataStack)
 		callback, ne.dataStack = popStack(ne.dataStack)
-		
+
 		http.HandleFunc(path.getString(), func(w http.ResponseWriter, r *http.Request) {
 			r.ParseForm()
 			var code = r.Form["code"]
@@ -1797,14 +1842,13 @@ func MakeEngine() *Engine{
 		http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir(cwd))))
 		http.ListenAndServe(":80", nil)
 		return ne}))
-	
+
 		e=add(e, "RPCSERVER",  NewCode("RPCSERVER", 0, func (ne *Engine,c *Thingy) *Engine {
 		rpc_server("127.0.0.1:80")
 		return ne}))
-	
-	
+
+
 	e=add(e, "GETWWW",  NewCode("GETWWW", 0, func (ne *Engine,c *Thingy) (re *Engine) {
-		
 		var path *Thingy
 		path, ne.dataStack = popStack(ne.dataStack)
 		defer func() {
@@ -1812,7 +1856,6 @@ func MakeEngine() *Engine{
             fmt.Println("Failed to retrieve ",path.getSource(), " because ",  r)
 			ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
 			re=ne
-			
         }
     }()
 		res, err := http.Get(path.getString())
@@ -1824,15 +1867,15 @@ func MakeEngine() *Engine{
 	if err != nil {
 		log.Println(err)
 	}
-	
+
 	ne.dataStack = pushStack(ne.dataStack, NewString(string(robots), ne.environment))
-	
+
 		return ne}))
-	
-	
-	
-		
-		
+
+
+
+
+
 	e=add(e, "EXIT",  NewCode("EXIT", 0, func (ne *Engine,c *Thingy) *Engine {
 		/*for f, m := range ne._heatMap {
 			fmt.Println("Hotspots in file ", f)
@@ -1843,8 +1886,8 @@ func MakeEngine() *Engine{
 		fmt.Println("Goodbye")
 		os.Exit(0)
 		return e}))
-		
-		
+
+
 		e=add(e, "LENGTH",  NewCode("LENGTH", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1861,34 +1904,34 @@ func MakeEngine() *Engine{
 		ne.dataStack = pushStack(ne.dataStack, NewString(fmt.Sprintf("%v", val), ne.environment))
 		//stackDump(ne.dataStack)
 		return ne}))
-		
-		
+
+
 		e=add(e, "NEWQUEUE",  NewCode("NEWQUEUE", -1, func (ne *Engine,c *Thingy) *Engine {
 		q := make(chan *Thingy, 1000)
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(q))
 		//stackDump(ne.dataStack)
 		return ne}))
-		
+
 		e=add(e, "WRITEQ",  NewCode("WRITEQ", 2, func (ne *Engine,c *Thingy) *Engine {
 			var el,el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		
+
 		q := el._structVal.(chan *Thingy)
-		
+
 		q <- el1
 		//ne.dataStack = pushStack(ne.dataStack, NewWrapper(q))
 		//stackDump(ne.dataStack)
 		return ne}))
-		
+
 		e=add(e, "READQ",  NewCode("READQ", 0, func (ne *Engine,c *Thingy) *Engine {
 			var el,el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		
-		
+
+
 		q := el._structVal.(chan *Thingy)
 		el1 = <- q
-		
+
 		ne.dataStack = pushStack(ne.dataStack, el1)
 		//stackDump(ne.dataStack)
 		return ne}))
@@ -1897,15 +1940,15 @@ func MakeEngine() *Engine{
 			var el,el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		
-		
+
+
 		ifi,_ := net.InterfaceByName(el.getString())
 		fmt.Printf("%v\n", ifi)
 		arp,_ := arp.NewClient(ifi)
 		s := net.ParseIP(el1.getString())
 		fmt.Printf("%V\n", s)
 		addr, _ := arp.Resolve(s)
-		
+
 		ne.dataStack = pushStack(ne.dataStack, NewString(string(addr), nil))
 		return ne}))
 
@@ -1915,7 +1958,7 @@ func MakeEngine() *Engine{
 		r,_ := net.LookupCNAME(el.getString())
 		ne.dataStack = pushStack(ne.dataStack, NewString(string(r), nil))
 		return ne}))
-		
+
 		e=add(e, "DNS.HOST",  NewCode("DNS.HOST", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1933,7 +1976,7 @@ func MakeEngine() *Engine{
 		ne = ne.RunString(a, "DNS.TXT")
 		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
 		return ne}))
-		
+
 		e=add(e, "DNS.REVERSE",  NewCode("DNS.REVERSE", 0, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1942,40 +1985,40 @@ func MakeEngine() *Engine{
 		ne = ne.RunString(a, "DNS.REVERSE")
 		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
 		return ne}))
-		
-		
+
+
 		e=add(e, "CALL/CC",  NewCode("CALL/CC", -1, func (ne *Engine,c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		cc := NewWrapper(ne)
 		cc._engineVal=ne
-		
+
 		ne = cloneEngine(ne, true)
 		ne.codeStack = pushStack(ne.codeStack, NewToken("CALL", nil))
 		ne.lexStack= pushStack(ne.lexStack, ne.environment)
-		
+
 		ne.dataStack = pushStack(ne.dataStack, cc)
 		ne.dataStack = pushStack(ne.dataStack, el)
-		
-		
+
+
 		return ne}))
 
 		e=add(e, "ACTIVATE/CC",  NewCode("ACTIVATE/CC", 9999, func (ne *Engine,c *Thingy) *Engine {
 		var el, el1 *Thingy
-		
+
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
 		ne = el._structVal.(*Engine)
-		
+
 		ne.dataStack = pushStack(ne.dataStack, el1)
 		return ne}))
-		
-	
+
+
 		e=add(e, "INSTALLDYNA",  NewCode("INSTALLDYNA", 2, func (ne *Engine,c *Thingy) *Engine {
             var el, err *Thingy
             err, ne.dataStack = popStack(ne.dataStack)
             el, ne.dataStack = popStack(ne.dataStack)
-            
+
             var new_env = ne.environment
             var errStack = append(ne.dyn, err)
             new_env.errorChain = errStack
@@ -1993,11 +2036,11 @@ func MakeEngine() *Engine{
 		e=add(e, "DUMP",  NewCode("DUMP", 1, func (ne *Engine,c *Thingy) *Engine {
             var el *Thingy
             el, ne.dataStack = popStack(ne.dataStack)
-            
+
             fmt.Print("%v", el)
 		    return ne
         }))
-	
+
 
 
 	//fmt.Println("Done")
