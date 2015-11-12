@@ -3,7 +3,7 @@
 //Released under the artistic license 2.0
 
 package throfflib
-import (    
+import (
 
 "fmt"
  "strconv"
@@ -47,7 +47,7 @@ func WgCallback () {
 CallbackState = CallbackState.RunString("WGCALLBACK", "wg callback")
 
 }
-		
+
 
 func EnsureGC () {
 	if (gc == nil) {
@@ -55,18 +55,18 @@ func EnsureGC () {
 		gc = draw2dimg.NewGraphicContext(dest)
 	}
 }
-		
+
 //Creates a new engine and populates it with the core functions
 func LoadGraphics(e *Engine) *Engine{
-	
-	
+
+
 	e=add(e, "glfw.Init", NewCode("glfw.Init", 0, func (e *Engine,c *Thingy) *Engine {
 		    err := glfw.Init()
 			if err != nil {
 				panic(err)
 			}
 	return e}))
-	
+
 	e=add(e, "GLFWEVENTLOOP", NewCode("GLFWEVENTLOOP", 1, func (e *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, e.dataStack = popStack(e.dataStack)
@@ -86,7 +86,7 @@ func LoadGraphics(e *Engine) *Engine{
 			window.SwapBuffers()
 			glfw.PollEvents()
 		}
-	
+
 
 		return e}))
 
@@ -105,7 +105,7 @@ func LoadGraphics(e *Engine) *Engine{
 	e=add(e, "wg.SetFillColor", NewCode("wg.SetFillColor", 1, func (e *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, e.dataStack = popStack(e.dataStack)
-		col := el1._structVal.(color.RGBA) 
+		col := el1._structVal.(color.RGBA)
 		EnsureGC()
 		gc.SetFillColor(col)
 	return e}))
@@ -113,7 +113,7 @@ func LoadGraphics(e *Engine) *Engine{
 	e=add(e, "wg.SetStrokeColor", NewCode("wg.SetStrokeColor", 1, func (e *Engine,c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, e.dataStack = popStack(e.dataStack)
-		col := el1._structVal.(color.RGBA) 
+		col := el1._structVal.(color.RGBA)
 		EnsureGC()
 		gc.SetStrokeColor(col)
 	return e}))
@@ -136,7 +136,7 @@ func LoadGraphics(e *Engine) *Engine{
 		gc.MoveTo(float64(x1),float64(x2)) // should always be called first for a new path
 	return e}))
 
-	
+
 	e=add(e, "wg.LineTo", NewCode("wg.LineTo", 2, func (e *Engine,c *Thingy) *Engine {
 		var el1, el2 *Thingy
 		el1, e.dataStack = popStack(e.dataStack)
@@ -247,39 +247,42 @@ e=add(e, "wg.FillStringAt", NewCode("wg.FillStringAt", 3, func (e *Engine,c *Thi
 			ret = NewBool(1)
 		} else {
 			ret = NewBool(0)
-		}	
+		}
 		e.dataStack = append(e.dataStack, ret)
 		return e}))
- 	e=add(e, "WG.START", NewCode("WG.START", 1, func (e *Engine,c *Thingy) *Engine {
-		CallbackState = e
-		wg.Start(800, 600, 8500, WgCallback)
-		return e}))
+ 	e=add(e, "WG.START", NewCode("WG.START", 1, func (ne *Engine,c *Thingy) *Engine {
+		CallbackState = ne
+    var port *Thingy
+    port, ne.dataStack = popStack(ne.dataStack)
+    portnum, _ := strconv.ParseInt( port.getString(), 10, 32 )
+		wg.Start(800, 600, int(portnum), WgCallback)
+		return ne}))
 
 
-		
+
 	e=add(e, "glfw.CreateWindow",  NewCode("glfw.CreateWindow", 2, func (ne *Engine,c *Thingy) *Engine {
 		var x,y,title *Thingy
-		
+
 		x, ne.dataStack = popStack(ne.dataStack)
 		y, ne.dataStack = popStack(ne.dataStack)
 		title, ne.dataStack = popStack(ne.dataStack)
-		
+
 		xx, _ := strconv.ParseInt( x.getString(), 10, 32 )
 		yy, _ := strconv.ParseInt( y.getString(), 10, 32 )
-		
-		
+
+
 		glfw.WindowHint(glfw.Resizable, glfw.False)
 		glfw.WindowHint(glfw.ContextVersionMajor, 2)
 		glfw.WindowHint(glfw.ContextVersionMinor, 1)
-			
+
 		window, err := glfw.CreateWindow(int(xx), int(yy), title.getString(), nil, nil)
 		if err != nil {
 			panic(err)
 		}
-			
+
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(window))
 		return ne}))
-return e	
+return e
 }
 
 
