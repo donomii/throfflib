@@ -1,0 +1,4 @@
+Calling CATCH handler lamdbda installs handler on the top of the error stack, and runs lambda
+lambda THROWs an error, by calling CALL/CC [ ACTIVATE/CC errorhandler ]
+Execution resumes in the CATCH, which starts processing the "result" of CALL/CC
+
