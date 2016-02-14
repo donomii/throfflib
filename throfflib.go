@@ -2055,6 +2055,20 @@ func BootStrapString( ) string {
 
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
 
+DEFINE IFFY => [ IF TRUTHY ]
+
+DEFINE TRUTHY => [
+
+       CASE A[
+               EQUAL 0 X               ...     FALSE
+               LESSTHAN X 0    ...     FALSE
+               NOT EQUAL 0  LENGTH X ... TRUE
+               DEFAULT                 ...     TRUE
+       ]A
+
+       ARG X =>
+]
+
 DEFINE THROW => [
     ACTIVATE/CC ERRORHANDLER A[ TRUE  MSG ]A
     ARG MSG =>
