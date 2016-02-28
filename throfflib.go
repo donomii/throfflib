@@ -2037,7 +2037,7 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             var el *Thingy
             el, ne.dataStack = popStack(ne.dataStack)
 
-            fmt.Print("%v", el)
+            fmt.Print("%v\n", el)
 		    return ne
         }))
         e=add(e, "STARTPROCESS",  NewCode("STARTPROCESS", 1, func (ne *Engine,c *Thingy) *Engine {
@@ -2046,11 +2046,11 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             el_arr, ne.dataStack = popStack(ne.dataStack)
             
             var argv = []string{el.getString()}
-            fmt.Printf("$V", el_arr._arrayVal)
+            //fmt.Printf("$V", el_arr._arrayVal)
             for _,v := range el_arr._arrayVal {
                 argv = append(argv, v.getString())
             }
-            fmt.Printf("$V", argv)
+            //fmt.Printf("$V", argv)
             attr :=  os.ProcAttr{
                 Files:  []*os.File{os.Stdin, os.Stdout, os.Stderr},
             }

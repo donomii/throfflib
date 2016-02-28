@@ -115,30 +115,54 @@ DEFINE PROMISE => [
 ]
 
 DEFINE CALLA => [
-        ->FUNC [
+    CALL [
+        ->FUNC THIN [
                 VAL
-                WHEN NOT DONE
+                WHEN NOT EQUAL DONE 1
                         THIN [
                                 REBIND VAL => READQ RQ
-                                REBIND DONE => TRUE
+                                REBIND DONE => 1
+                                COMMENT [ DUMP RQ
+                                PRINTLN A[ !!!!!! [ CALLA READING RETURN QUEUE ] URL !!!!!!! ]A ]
                         ]
         ]
-        WRITEQ AC H[ FARG => URL RET => RQ ]H
-        BIND RQ => NEWQUEUE
-        BIND DONE => FALSE
-        BIND VAL => FALSE
-        BIND URL =>
-        BIND AC =>
+        REBIND RQ => RQ
+        REBIND DONE => DONE
+        REBIND VAL => VAL
+    ]
+    WRITEQ AC H[ FARG => URL RET => RQ ]H
+    COMMENT [ DUMP AC
+    PRINTLN A[ [ CALLA WRITING TO QUEUE ] URL ]A ]
+    BIND RQ => NEWQUEUE
+    BIND DONE => 0
+    BIND VAL => FALSE
+    BIND URL =>
+    BIND AC =>
+]
+
+DEFINE ACTORREC => [
+                    COMMENT [ PRINTLN [ CALLED RECURSE in ACTORREC ] ]
+                    ACTORREC
+                    COMMENT [ PRINTLN [ CALLING RECURSE in ACTORREC ] ]
+                    USERFUNC WQ
+                    WRITEQ RETQ CALL USERFUNC  FARG STATE
+                    COMMENT [ DUMP RETQ
+                    PRINTLN [ ACTOR WRITING TO QUEUE ] ]
+                    BIND RETQ => GETHASH RET => PARAMS
+                    BIND FARG => GETHASH FARG => PARAMS
+                    BIND PARAMS => READQ WQ
+                    COMMENT [ DUMP WQ
+                    PRINTLN [ ACTOR WAITING ON QUEUE ] ]
+                    BIND STATE =>
+                    BIND WQ =>
+                    BIND USERFUNC =>
+                    COMMENT [ PRINTLN [ Recursing ACTORREC ] ]
 ]
 
 DEFINE ACTOR => [
         WQ
         THREAD [
-                FOREVER [ .S WRITEQ RETQ CALL USERFUNC  FARG
-                BIND RETQ => GETHASH RET => PARAMS
-                BIND FARG => GETHASH FARG => PARAMS
-                BIND PARAMS => READQ WQ
-                ]
+                ACTORREC USERFUNC WQ STARTPROCESS /bin/echo  [ . ]
         ]
         BIND WQ NEWQUEUE
         BIND USERFUNC =>
