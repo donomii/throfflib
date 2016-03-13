@@ -1162,9 +1162,11 @@ func MakeEngine() *Engine{
 		return ne}))
 
 
-	e=add(e, "DIRECTORY-LIST",  NewCode("DIRECTORY-LIST", -1, func (ne *Engine,c *Thingy) *Engine {
+	e=add(e, "DIRECTORY-LIST",  NewCode("DIRECTORY-LIST", 0, func (ne *Engine,c *Thingy) *Engine {
 		var dir []os.FileInfo
-		dir,_ = ioutil.ReadDir("./")
+        var aDir *Thingy
+		aDir, ne.dataStack =popStack(ne.dataStack)
+		dir,_ = ioutil.ReadDir(aDir.getString())
 		var f stack
 		for _,el := range dir { f=pushStack(f,NewString(el.Name(), e.environment))}
 		c=NewArray(f)
@@ -2037,7 +2039,8 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             var el *Thingy
             el, ne.dataStack = popStack(ne.dataStack)
 
-            fmt.Print("%v\n", el)
+            ret := NewString(fmt.Sprintf("%v", el), nil)
+            ne.dataStack = pushStack(ne.dataStack, ret)
 		    return ne
         }))
         e=add(e, "STARTPROCESS",  NewCode("STARTPROCESS", 1, func (ne *Engine,c *Thingy) *Engine {

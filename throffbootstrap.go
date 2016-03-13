@@ -682,26 +682,40 @@ DEFINE SWAPARR =>  [
 
 
 DEFINE HELP => [ ITERATE [ PRINTLN ] A[
+.
 [ Welcome to THROFF ]
 .
-[ Throff is a minimal scripting language and an ultra-lightweight interpreter. ]
+[ Throff is a minimal scripting language and an ultra-lightweight interpreter. Throff provides powerful and convenient scripting access from the command line. ]
 .
 .
-[ Throff provides powerful and convenient scripting access from the command line. ]
-.
-[ C:\ > THROFF ADD 1 1 ]
-[ 2 ]
-.
-.
-[ Throff is designed for convenient programming, and has a convenient command shell.  For more help on the the shell, type SHELLHELP. ]
-.
-[ There are many help pages, we suggest the following order: ]
-.
+[ SHELLHELP   - Using the command line ]
 [ QUICKSTART  - How to Throff, with examples ]
 [ BUILTINS    - Arrays, hashes, if then else, while, map, filter, fold etc ]
 .
 .
 .
+]A
+: . => A[ ]A
+: TAB => STRING-CONCATENATE STRING-CONCATENATE SPACE SPACE STRING-CONCATENATE SPACE SPACE
+]
+
+DEFINE SHELLHELP => 	[ ITERATE [ EMIT SPACE EMIT ] A[
+.
+[ Type your program on the command line, and the result will be printed above the ready prompt. ]
+Ready> ADD 2 3
+5
+Ready> 
+
+[ Throff is a stack based language.  The top item of the stack is always printed above the Ready> prompt.  All functions work on the stack, so you can type your command in parts, and examine it. ]
+
+Ready> 2
+2
+Ready> 3
+3
+Ready> ADD
+5
+Ready>
+
 ]A
 : . => A[ ]A
 : TAB => STRING-CONCATENATE STRING-CONCATENATE SPACE SPACE STRING-CONCATENATE SPACE SPACE
