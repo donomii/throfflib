@@ -1790,6 +1790,36 @@ func MakeEngine() *Engine{
 		rpc_server("127.0.0.1:80")
 		return ne}))
 
+		e=add(e, "TCPSERVER",  NewCode("TCPSERVER", 1, func (ne *Engine,c *Thingy) *Engine {
+			var server, port *Thingy
+			server, ne.dataStack = popStack(ne.dataStack)
+			port, ne.dataStack = popStack(ne.dataStack)
+// Listen on TCP port 2000 on all interfaces.
+    l, err := net.Listen("tcp", fmt.Sprintf("%s:%s",server.getString(), port.getString()))
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer l.Close()
+    for {
+        // Wait for a connection.
+        conn, err := l.Accept()
+        if err != nil {
+            log.Fatal(err)
+        }
+        // Handle the connection in a new goroutine.
+        // The loop then returns to accepting, so that
+        // multiple connections may be served concurrently.
+        go func(c net.Conn) {
+			t := NewWrapper(c)
+			ne.dataStack = pushStack(ne.dataStack, t)
+            ne.RunString("CALL SWAP", "TCPSERVER provided handler")
+            // Echo all incoming data.
+            //io.Copy(c, c)
+            // Shut down the connection.
+            c.Close()
+        }(conn)
+    }
+		return e}))
 		e=add(e, "OPENSOCKET",  NewCode("OPENSOCKET", 1, func (ne *Engine,c *Thingy) *Engine {
 			var server, port *Thingy
 			server, ne.dataStack = popStack(ne.dataStack)
