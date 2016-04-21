@@ -2,6 +2,8 @@
 //
 //Released under the artistic license 2.0
 
+// +build !android
+
 package throfflib
 import (
 
