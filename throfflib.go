@@ -71,8 +71,8 @@ type Thingy struct {
 type stack []*Thingy
 type Engine struct {
 	//previousEngine	*Engine
-	dataStack 			stack				//The argument stack
 	environment 		*Thingy  			//The current lexical environment
+	dataStack 			stack				//The argument stack
     dyn                 stack               //The current dynamic environment
 	codeStack			stack				//The future of the program
 	lexStack			stack
@@ -224,6 +224,7 @@ func cloneEnv(env *Thingy) *Thingy{
 
 func add(e *Engine, s string, t *Thingy) *Engine {
 	ne := cloneEngine(e, false)
+	t._note = s
 	ne.environment._hashVal[s] = t
 	//t.environment = ne.environment
 	t.share_parent_environment=true
@@ -465,7 +466,6 @@ func dumpEnv ( e *Thingy ) {
 
 //The core of the interpreter.  Each step advances the program by one command
 func doStep(e *Engine) (*Engine, bool) {
-
 	if len(e.codeStack)>0 {											//If there are any instructions left
 		var v, lex *Thingy
         var dyn stack
@@ -523,7 +523,7 @@ func doStep(e *Engine) (*Engine, bool) {
 				return ne, true
 			} else {
 				if v.tiipe == "CODE" {
-				fmt.Println(fmt.Sprintf("Arity mismatch in native function! %v claimed %v, but actually took %v\n", v.getString(), v.arity, (oldlen-newlen)))
+				fmt.Println(fmt.Sprintf("Arity mismatch in native function! %v claimed %v, but actually took %v\n", v._note, v.arity, (oldlen-newlen)))
 
 				}
 				return ne, true
@@ -2041,7 +2041,22 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 		    return ne
         }))
 
+		e=add(e, "CLEARSTACK",  NewCode("CLEARSTACK", 9999, func (ne *Engine,c *Thingy) *Engine {
+            ne.dataStack 	=	stack{}				//The argument stack
+			ne.dyn			=	stack{}               //The current dynamic environment
+			ne.codeStack	=	stack{}				//The future of the program
+			ne.lexStack		=	stack{}
 
+		    return ne
+        }))
+		e=add(e, "SIN",  NewCode("SIN", 0, func (ne *Engine,c *Thingy) *Engine {
+            var arg *Thingy
+            arg , ne.dataStack = popStack(ne.dataStack)
+			var in,_ = strconv.ParseFloat( arg.getSource() , 32 )
+			var ret = math.Sin(in)
+            ne.dataStack = pushStack(ne.dataStack, NewString(fmt.Sprintf("%v", ret),ne.environment))
+		    return ne
+        }))
 
 	//fmt.Println("Done")
 	return e
