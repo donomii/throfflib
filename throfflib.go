@@ -1162,9 +1162,11 @@ func MakeEngine() *Engine{
 		return ne}))
 
 
-	e=add(e, "DIRECTORY-LIST",  NewCode("DIRECTORY-LIST", -1, func (ne *Engine,c *Thingy) *Engine {
+	e=add(e, "DIRECTORY-LIST",  NewCode("DIRECTORY-LIST", 0, func (ne *Engine,c *Thingy) *Engine {
 		var dir []os.FileInfo
-		dir,_ = ioutil.ReadDir("./")
+        var aDir *Thingy
+		aDir, ne.dataStack =popStack(ne.dataStack)
+		dir,_ = ioutil.ReadDir(aDir.getString())
 		var f stack
 		for _,el := range dir { f=pushStack(f,NewString(el.Name(), e.environment))}
 		c=NewArray(f)
@@ -2037,9 +2039,89 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             var el *Thingy
             el, ne.dataStack = popStack(ne.dataStack)
 
-            fmt.Print("%v", el)
+            ret := NewString(fmt.Sprintf("%v", el), nil)
+            ne.dataStack = pushStack(ne.dataStack, ret)
 		    return ne
         }))
+        e=add(e, "STARTPROCESS",  NewCode("STARTPROCESS", 1, func (ne *Engine,c *Thingy) *Engine {
+            var el, el_arr *Thingy
+            el, ne.dataStack = popStack(ne.dataStack)
+            el_arr, ne.dataStack = popStack(ne.dataStack)
+            
+            var argv = []string{el.getString()}
+            //fmt.Printf("$V", el_arr._arrayVal)
+            for _,v := range el_arr._arrayVal {
+                argv = append(argv, v.getString())
+            }
+            //fmt.Printf("$V", argv)
+            attr :=  os.ProcAttr{
+                Files:  []*os.File{os.Stdin, os.Stdout, os.Stderr},
+            }
+            proc, err := os.StartProcess(el.getString(), argv, &attr)
+            running := NewWrapper(proc)
+
+            var ret *Thingy
+            if err == nil {
+                ret = running
+            } else {
+                ret = NewBool(0)
+            }
+
+            ne.dataStack = pushStack(ne.dataStack, ret)
+            return ne
+        }))
+        e=add(e, "KILLPROC",  NewCode("KILLPROC", 1, func (ne *Engine,c *Thingy) *Engine {
+            var el *Thingy
+            el, ne.dataStack = popStack(ne.dataStack)
+            proc := el._structVal.(*os.Process)
+            err := proc.Kill()
+            var ret *Thingy
+
+            if (err == nil) {
+                ret = NewBool(0)
+            } else {
+                ret = NewString(fmt.Sprintf("%v", err), nil)
+            }
+
+            ne.dataStack = pushStack(ne.dataStack, ret)
+            return ne
+        }))
+        e=add(e, "RELEASEPROC",  NewCode("RELEASEPROC", 1, func (ne *Engine,c *Thingy) *Engine {
+            var el *Thingy
+            el, ne.dataStack = popStack(ne.dataStack)
+            proc := el._structVal.(*os.Process)
+            err := proc.Release()
+            var ret *Thingy
+
+            if (err == nil) {
+                ret = NewBool(0)
+            } else {
+                ret = NewString(fmt.Sprintf("%v", err), nil)
+            }
+
+            ne.dataStack = pushStack(ne.dataStack, ret)
+            return ne
+        }))
+ 
+        e=add(e, "WAITPROC",  NewCode("WAITPROC", 1, func (ne *Engine,c *Thingy) *Engine {
+            var el *Thingy
+            el, ne.dataStack = popStack(ne.dataStack)
+            proc := el._structVal.(*os.Process)
+            procState, err := proc.Wait()
+            var ret *Thingy
+
+            if (err == nil) {
+                ret = NewString(fmt.Sprintf("%v\nPid: %v\nSystemTime: %v\nUserTime: %v\nSuccess: %v", procState.String(), procState.Pid(), procState.SystemTime(), procState.UserTime(), procState.Success()), nil)
+            } else {
+                ret = NewString(fmt.Sprintf("%v\nPid: %v\nSystemTime: %v\nUserTime: %v\nSuccess: %vError: %v", procState.String(), procState.Pid(), procState.SystemTime(), procState.UserTime(), procState.Success(), err), nil)
+            }
+
+            ne.dataStack = pushStack(ne.dataStack, ret)
+            return ne
+        }))
+
+
+
 
 		e=add(e, "CLEARSTACK",  NewCode("CLEARSTACK", 9999, func (ne *Engine,c *Thingy) *Engine {
             ne.dataStack 	=	stack{}				//The argument stack
@@ -2062,6 +2144,4 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 	return e
 }
 
-func BootstrapText() string {
-return ` `
-}
+
