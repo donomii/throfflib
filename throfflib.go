@@ -26,6 +26,7 @@ import "bytes"
 import "database/sql"
 import "github.com/mdlayher/arp"
 import ( _ "github.com/mattn/go-sqlite3" )
+import "golang.org/x/net/websocket"
 
 var precision uint = 256
 var interpreter_debug = false
@@ -195,12 +196,12 @@ func nameSpaceLookup(e *Engine, t *Thingy) (*Thingy, bool) {
 	key := t.getString()
 	val, ok := e.environment._hashVal[key]
 	if interpreter_debug {
-		fmt.Printf("%p: Looking up: %v -> %v in %v\n", e.environment, key, val, e.environment)
+		emit(fmt.Sprintf("%p: Looking up: %v -> %v in %v\n", e.environment, key, val, e.environment))
 	}
 	if  !ok {
 	var _,ok = strconv.ParseFloat( t.getSource() , 32 )		//Numbers don't need to be defined in the namespace
 	if  ok != nil {
-		if e._safeMode { fmt.Printf("Warning: %v not defined at line %v\n", key, t._line) }
+		if e._safeMode { emit(fmt.Sprintf("Warning: %v not defined at line %v\n", key, t._line)) }
 	}
 	}
 	return val,ok
@@ -277,7 +278,7 @@ func tokenStepper (e *Engine,c *Thingy) *Engine {
 		} 		//Start a (possibly nested) function
 		//fmt.Printf("TOKEN: in function level: %v\n", ne._funcLevel)
 		if (ne._funcLevel<0) {
-			fmt.Printf ("Unmatched [ at line %v\n", c._line)
+			emit(fmt.Sprintf ("Unmatched [ at line %v\n", c._line))
 			engineDump(ne)
 			panic(fmt.Sprintf ("Unmatched [ at line %v\n", c._line))
 
@@ -454,11 +455,11 @@ func popStack (s stack) (*Thingy, stack) {
 //neatly print out all the variables in scope
 func dumpEnv ( e *Thingy ) {
 		if e != nil {
-		fmt.Printf("===Env=== %p\n", e)
+		emit(fmt.Sprintf("===Env=== %p\n", e))
 		keys :=make([]string,0,len(e._hashVal))
 		for k, _ := range e._hashVal { keys = append(keys, k) }
 		sort.Strings(keys)
-		fmt.Println(keys)
+		emit(fmt.Sprintln(keys))
 		}
 }
 
@@ -490,7 +491,7 @@ func doStep(e *Engine) (*Engine, bool) {
 
 		if    v.tiipe == "CODE" && v.no_environment == true {							//Macros do not carry their own environment, they use the environment from the previous instruction
 			if interpreter_debug {
-				fmt.Printf("Macro using invoked environment")
+				emit(fmt.Sprintf("Macro using invoked environment"))
 			}
 			lex = ne.environment						//Set the macro environment to the current environment i.e. of the previous instruction, which will usually be the token's environment
 		} else {
@@ -503,16 +504,16 @@ func doStep(e *Engine) (*Engine, bool) {
 
 		//ne.environment = lex
 		if traceProg {
-			fmt.Printf("%v:Step: %v(%v) - (%p) \n", v._line, v.getString(), v.tiipe, lex)
+			emit(fmt.Sprintf("%v:Step: %v(%v) - (%p) \n", v._line, v.getString(), v.tiipe, lex))
 		}
 		//fmt.Printf("Calling: '%v'\n", v.getString())
 		if interpreter_debug {
-			fmt.Printf("Choosing environment %p for command %v(%v)\n", ne.environment, v.getString(), ne.environment)
+			emit(fmt.Sprintf("Choosing environment %p for command %v(%v)\n", ne.environment, v.getString(), ne.environment))
 		}
 
 		oldlen:= len(ne.dataStack)								//Note the size of the data stack
 		if interpreter_debug {
-			fmt.Printf("Using environment: %p for command : %v\n", ne.environment, v.getString())
+			emit(fmt.Sprintf("Using environment: %p for command : %v\n", ne.environment, v.getString()))
 		}
 		ne = v._stub(ne, v)										//Call the handler function for this instruction
 		newlen := len(ne.dataStack)								//Note the new data stack size
@@ -523,7 +524,7 @@ func doStep(e *Engine) (*Engine, bool) {
 				return ne, true
 			} else {
 				if v.tiipe == "CODE" {
-				fmt.Println(fmt.Sprintf("Arity mismatch in native function! %v claimed %v, but actually took %v\n", v.getString(), v.arity, (oldlen-newlen)))
+				emit(fmt.Sprintln(fmt.Sprintf("Arity mismatch in native function! %v claimed %v, but actually took %v\n", v.getSource(), v.arity, (oldlen-newlen))))
 
 				}
 				return ne, true
@@ -579,15 +580,15 @@ func StringsToTokens (stringBits []string) stack {
 }
 
 func engineDump (e *Engine) {
-		fmt.Printf("Stack: %v, Code: %v, Environment: %v items\n", len(e.dataStack), len(e.codeStack), len(e.environment._hashVal))
-		fmt.Printf("=========================================================================\n")
-		fmt.Printf("|| code: ")
+		emit(fmt.Sprintf("Stack: %v, Code: %v, Environment: %v items\n", len(e.dataStack), len(e.codeStack), len(e.environment._hashVal)))
+		emit(fmt.Sprintf("=========================================================================\n"))
+		emit(fmt.Sprintf("|| code: "))
 		stackDump(e.codeStack)
-		fmt.Printf("\n")
-		fmt.Printf("|| data: ")
+		emit(fmt.Sprintf("\n"))
+		emit(fmt.Sprintf("|| data: "))
 		stackDump(e.dataStack)
-		fmt.Printf("\n")
-		fmt.Printf("=========================================================================\n")
+		emit(fmt.Sprintf("\n"))
+		emit(fmt.Sprintf("=========================================================================\n"))
 }
 func run (e *Engine) (*Engine, bool) {
 	ok := true
@@ -613,19 +614,32 @@ func (e *Engine) LoadTokens (s stack)  {
 
 func Repl (e *Engine) *Engine {
 	//engineDump(e)
-	fmt.Printf("Ready> ");
+	emit(fmt.Sprintf("Ready> "))
 	reader := bufio.NewReader(os.Stdin)
 	text, _ := reader.ReadString('\n')
 	if (len(text)>0) {
 		e.LoadTokens(tokenise(text, "repl"))
 		//stackDump(e.codeStack)
 		e,_=run(e)
-		fmt.Println(e.dataStack[len(e.dataStack)-1].getString())
+		emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].getString()))
 		Repl(e)
 		return e
 	} else {
 		return e
 	}
+}
+
+var outputBuff string = ""
+//All output to STDOUT should go through this function, so we can resend it to network ports, logfiles etc
+func emit (s string) {
+    outputBuff = fmt.Sprintf("%s%s", outputBuff, s)
+    fmt.Printf("%s", s)
+}
+
+func clearOutput () string {
+    var temp = outputBuff
+    outputBuff = ""
+    return temp
 }
 
 func (e *Engine) RunString (s string, source string) (*Engine) {
@@ -641,10 +655,11 @@ func (e *Engine) RunFile (s string) (*Engine) {
 }
 
 func stackDump (s stack) {
-	fmt.Printf("\nStack: ")
+	emit(fmt.Sprintf("\nStack: "))
 	for i, _:= range s {
 		if  i< 20 {
-			fmt.Printf(":%v(%v):", s[len(s)-1-i].getSource(), s[len(s)-1-i].tiipe)}
+			emit(fmt.Sprintf(":%v(%v):", s[len(s)-1-i].getSource(), s[len(s)-1-i].tiipe))
+        }
 	}
 }
 
@@ -721,7 +736,7 @@ func buildFunc(e *Engine, f stack) *Engine {
 
 			var en = MakeEngine()
 			en = en.RunFile("bootstrap.lib")
-			fmt.Printf("code: %v\n", code)
+			emit(fmt.Sprintf("code: %v\n", code))
 
 			en = en.RunString(code, "eval")
 			var ret, _ = popStack(en.dataStack)
@@ -736,7 +751,7 @@ func buildFunc(e *Engine, f stack) *Engine {
 
 	reply.Answer = rethash
 	//reply.TagsToFilesHisto, reply.TopTags = sumariseDatabase()
-	fmt.Println("Status handler complete")
+	emit(fmt.Sprintln("Status handler complete"))
 	return nil
 }
 type Args struct {
@@ -788,7 +803,7 @@ func (r *rpcRequest) Close() error {
 // Call invokes the RPC request, waits for it to complete, and returns the results.
 func (r *rpcRequest) Call() io.Reader {
 	if debug {
-		log.Printf("Processing json rpc request\n")
+		emit(fmt.Sprintf("Processing json rpc request\n"))
 	}
 	arith := new(TagResponder)
 
@@ -802,7 +817,9 @@ func (r *rpcRequest) Call() io.Reader {
 	<-r.done
 	//b := []byte{}
 	//_, _ = r.rw.Read(b)
-	log.Println("Returning")
+	if debug {
+	    emit(fmt.Sprintln("Returning"))
+    }
 	return r.rw
 }
 
@@ -827,7 +844,7 @@ func rpc_server(serverAddress string) {
 	})
 
 	cwd, _ := os.Getwd()
-	log.Printf("Serving /files/ from:%s\n", cwd)
+	emit(fmt.Sprintf("Serving /files/ from:%s\n", cwd))
 
 	http.Handle("/", http.FileServer(http.Dir("throffweb")))
 	http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir(cwd))))
@@ -857,6 +874,11 @@ func MakeEngine() *Engine{
 		e=add(e, "IDEBUGOFF", NewCode("IDEBUGOFF", 0, func (e *Engine,c *Thingy) *Engine {
 			interpreter_debug = false
 		return e}))
+
+		e=add(e, "CLEAROUTPUT", NewCode("CLEAROUTPUT", 0, func (e *Engine,c *Thingy) *Engine {
+		    e.dataStack=pushStack(e.dataStack,NewString(clearOutput(), e.environment))
+		return e}))
+
 
 		e=add(e, "IDEBUGON", NewCode("IDEBUGON", 0, func (e *Engine,c *Thingy) *Engine {
 			interpreter_debug = true
@@ -893,7 +915,7 @@ func MakeEngine() *Engine{
 		return e}))
 
 	e=add(e, "NULLSTEP", NewCode("NullStep", 0, func (e *Engine,c *Thingy) *Engine {
-		fmt.Printf("NullStep\n")
+		emit(fmt.Sprintf("NullStep\n"))
 		return e}))
 
 	e=add(e, "DROP", NewCode("DROP", 1, func (ne *Engine,c *Thingy) *Engine {
@@ -978,7 +1000,7 @@ func MakeEngine() *Engine{
 		rows, err := db.Query(str)
 
 		if err != nil {
-			fmt.Printf("Error: Reading from table %v", err)
+			emit(fmt.Sprintf("Error: Reading from table %v", err))
 		}
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(rows))
 		return ne}))
@@ -997,7 +1019,7 @@ func MakeEngine() *Engine{
 		_,err := db.Exec(querystring.getString(), stringArgs...)
 
 		if err != nil {
-			fmt.Printf("Error: exec failed: %v", err)
+			emit(fmt.Sprintf("Error: exec failed: %v", err))
 		}
 		return ne}))
 
@@ -1012,8 +1034,7 @@ func MakeEngine() *Engine{
 
 			    cols, err := rows.Columns()
     if err != nil {
-        fmt.Println("Failed to get columns", err)
-
+        emit(fmt.Sprintln("Failed to get columns", err))
     }
 
     // Result is your slice string.
@@ -1028,7 +1049,7 @@ func MakeEngine() *Engine{
     rows.Next()
         err = rows.Scan(dest...)
         if err != nil {
-            fmt.Println("Failed to scan row", err)
+            emit(fmt.Sprintln("Failed to scan row", err))
 
         }
 
@@ -1067,7 +1088,7 @@ func MakeEngine() *Engine{
 		//info, _ :=os.Lstat(el1.getString())
 		b, err := mmap.Map(f, mmap.RDWR, 0)
 		if err != nil {
-			fmt.Printf("mmap failed: %v\n", err)
+			emit(fmt.Sprintf("mmap failed: %v\n", err))
 
 		}
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(f))
@@ -1135,7 +1156,7 @@ func MakeEngine() *Engine{
 	e=add(e, "EMIT",  NewCode("EMIT", 1, func (ne *Engine,c *Thingy) *Engine {
 		var v *Thingy
 		v, ne.dataStack = popStack(ne.dataStack)
-		fmt.Printf("%v", v.getString())
+		emit(fmt.Sprintf("%v", v.getString()))
 		return ne}))
 
 
@@ -1143,7 +1164,7 @@ func MakeEngine() *Engine{
 		var v *Thingy
 		v, ne.dataStack = popStack(ne.dataStack)
 		//fmt.Printf("printing type: %v\n", v.tiipe)
-		fmt.Printf("%v\n", v.getString())
+		emit(fmt.Sprintf("%v\n", v.getString()))
 		return ne}))
 
 
@@ -1194,7 +1215,7 @@ func MakeEngine() *Engine{
 		var aName, aVal *Thingy
 				defer func() {
         if r := recover(); r != nil {
-            fmt.Println("Unable to set variable ",aName.getSource(), " because ",  r)
+            emit(fmt.Sprintln("Unable to set variable ",aName.getSource(), " because ",  r))
 			engineDump(ne)
 			os.Exit(1)
         }
@@ -1203,20 +1224,20 @@ func MakeEngine() *Engine{
 		aVal, ne.dataStack =popStack(ne.dataStack)
 		env:=ne.environment
 		if interpreter_debug {
-			fmt.Printf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString())
+			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString()))
 		}
 
 		prev, ok :=env._hashVal[aName.getString()]
 		if ok  {
 			if e._safeMode {
-				fmt.Printf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.getString(), aName._filename, aName._line, prev.getString())
+				emit(fmt.Sprintf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.getString(), aName._filename, aName._line, prev.getString()))
 				os.Exit(1)
 			}
 		}
 		env._hashVal[aName.getString()] = aVal
 		checkVal, checkOk :=env._hashVal[aName.getString()]
 		if interpreter_debug {
-		fmt.Printf("Checked var %v, value is %v, in environment %p - %v\n",aName.getString(), checkVal, env, env )
+		emit(fmt.Sprintf("Checked var %v, value is %v, in environment %p - %v\n",aName.getString(), checkVal, env, env ))
 		}
 		if !checkOk {panic("bind name failed!")}
 		if ! (checkVal == aVal) {panic("bind name failed!")}
@@ -1229,7 +1250,7 @@ func MakeEngine() *Engine{
 		var aName, aVal *Thingy
 				defer func() {
         if r := recover(); r != nil {
-            fmt.Println("Unable to set variable ",aName.getSource(), " because ",  r)
+            emit(fmt.Sprintln("Unable to set variable ",aName.getSource(), " because ",  r))
 			engineDump(ne)
 			os.Exit(1)
         }
@@ -1239,13 +1260,13 @@ func MakeEngine() *Engine{
 		aVal, ne.dataStack =popStack(ne.dataStack)
 		env:=aName.environment
 		if interpreter_debug {
-			fmt.Printf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString())
+			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString()))
 		}
 
 		_, ok :=env._hashVal[aName.getString()]
 		if !ok  {
 			if e._safeMode {
-				fmt.Printf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.getString(), aName._line)
+				emit(fmt.Sprintf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.getString(), aName._line))
 				os.Exit(1)
 			}
 		}
@@ -1260,7 +1281,7 @@ func MakeEngine() *Engine{
 		var aName, aVal *Thingy
 		aName, ne.dataStack =popStack(ne.dataStack)
 		if interpreter_debug {
-			fmt.Printf("Environment: %p - Storing %v in %v\n", aName.environment, aVal.getString(), aName.getString())
+			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", aName.environment, aVal.getString(), aName.getString()))
 		}
 		ne.dataStack=pushStack(ne.dataStack, ne.environment)
 
@@ -1272,7 +1293,7 @@ func MakeEngine() *Engine{
 		var  aVal *Thingy
 		aVal, ne.dataStack =popStack(ne.dataStack)
 		if interpreter_debug {
-			fmt.Printf("Location: %v\n", aVal._line)
+			emit(fmt.Sprintf("Location: %v\n", aVal._line))
 		}
 		H := NewString(fmt.Sprintf("%v", aVal._line), c.environment)
 		ne.dataStack=pushStack(ne.dataStack, H)
@@ -1298,7 +1319,7 @@ func MakeEngine() *Engine{
 		aName, ne.dataStack =popStack(ne.dataStack)
 		env := ne.environment
 		if interpreter_debug {
-			fmt.Printf("Scrubbing %v from %v\n", aName.getString(), env)
+			emit(fmt.Sprintf("Scrubbing %v from %v\n", aName.getString(), env))
 		}
 		delete(env._hashVal, aName.getString())
 		_, ok :=env._hashVal[aName.getString()]
@@ -1315,8 +1336,8 @@ func MakeEngine() *Engine{
 
 		aVal, ok :=ne.environment._hashVal[aName.getString()]
 		if !ok {
-			for k,v := range ne.environment._hashVal {fmt.Printf("%v: %v\n", k,v)}
-			fmt.Println("key not found "   , aName.getString())
+			for k,v := range ne.environment._hashVal {emit(fmt.Sprintf("%v: %v\n", k,v))}
+			emit(fmt.Sprintln("key not found "   , aName.getString()))
 			panic("Key not found error")
 		}
 
@@ -1468,11 +1489,11 @@ func MakeEngine() *Engine{
 		return e}))
 
 	e=add(e, ".L",  NewCode(".S", 0, func (e *Engine,c *Thingy) *Engine {
-		fmt.Println()
+		emit(fmt.Sprintln())
 		//stackDump(e.codeStack)
-		fmt.Println("lexstack")
+		emit(fmt.Sprintln("lexstack"))
 		stackDump(e.lexStack)
-		fmt.Println()
+		emit(fmt.Sprintln())
 		return e}))
 
 	e=add(e, ".E",  NewCode(".S", 0, func (e *Engine,c *Thingy) *Engine {
@@ -1535,7 +1556,7 @@ func MakeEngine() *Engine{
 
 		defer func() {
         if r := recover(); r != nil {
-            fmt.Printf("Array out of bounds in getarray: index %v\n", arr, el.getSource())
+            emit(fmt.Sprintf("Array out of bounds in getarray: index %v\n", arr, el.getSource()))
 			engineDump(ne)
 			os.Exit(1)
         }
@@ -1683,7 +1704,7 @@ func MakeEngine() *Engine{
 		hash, ne.dataStack = popStack(ne.dataStack)
 		val = hash._hashVal[key.getString()]
 		if val == nil {
-			fmt.Printf("Warning: %v not found in hash%v\n\nCreating empty value\n", key.getString(), hash._hashVal)
+			emit(fmt.Sprintf("Warning: %v not found in hash%v\n\nCreating empty value\n", key.getString(), hash._hashVal))
 			val = NewString(fmt.Sprintf("UNDEFINED:%v", key.getString()), ne.environment)
 		}
 		ne.dataStack = pushStack(ne.dataStack, val  )
@@ -1825,7 +1846,7 @@ func MakeEngine() *Engine{
 			server, ne.dataStack = popStack(ne.dataStack)
 			port, ne.dataStack = popStack(ne.dataStack)
       conn, err := net.Dial("tcp", fmt.Sprintf("%v:%v", server.getString(), port.getString()))
-			fmt.Printf("%v",err)
+			emit(fmt.Sprintf("%v",err))
 			t := NewWrapper(conn)
 			ne.dataStack = pushStack(ne.dataStack, t)
 			return ne
@@ -1835,7 +1856,7 @@ e=add(e, "PRINTSOCKET",  NewCode("PRINTSOCKET", 2, func (ne *Engine,c *Thingy) *
 	var message, conn *Thingy
 	message, ne.dataStack = popStack(ne.dataStack)
 	conn, ne.dataStack = popStack(ne.dataStack)
-  fmt.Fprintf(conn._structVal.(io.Writer), message.getString())
+    fmt.Fprintf(conn._structVal.(io.Writer), message.getString())
 	return ne
 }))
 
@@ -1861,7 +1882,7 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 			var code = r.Form["code"]
 			var en = MakeEngine()
 			en = en.RunFile("bootstrap.lib")
-			fmt.Printf("code: %v\n", strings.Join(code, ""))
+			emit(fmt.Sprintf("code: %v\n", strings.Join(code, "")))
 			en.dataStack = pushStack(en.dataStack, NewString(strings.Join(code, ""), en.environment))
 			en.codeStack = pushStack(en.codeStack, callback)
 			en.lexStack = pushStack(en.lexStack, ne.environment)
@@ -1870,10 +1891,51 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 			fmt.Fprintf(w, "Hello, %q, %q, %v",  callback.getString(), html.EscapeString(r.URL.Path), ret.getString())
 		})
 			cwd, _ := os.Getwd()
-		fmt.Printf("Serving /resources/ from:%s\n", cwd)
+		emit(fmt.Sprintf("Serving /resources/ from:%s\n", cwd))
 		http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir(cwd))))
 		http.ListenAndServe(":80", nil)
 		return ne}))
+
+	e=add(e, "WEBSOCKETCLIENT",  NewCode("WEBSOCKETCLIENT", 0, func (ne *Engine,c *Thingy) *Engine {
+        var url, protocol, origin *Thingy
+		var q1, q2  *Thingy
+		url, ne.dataStack = popStack(ne.dataStack)
+		protocol, ne.dataStack = popStack(ne.dataStack)
+		origin, ne.dataStack = popStack(ne.dataStack)
+		q1, ne.dataStack = popStack(ne.dataStack)
+		q2, ne.dataStack = popStack(ne.dataStack)
+
+        wqueue := q1._structVal.(chan *Thingy)
+        rqueue := q2._structVal.(chan *Thingy)
+
+    ws, err := websocket.Dial(url.getString(), protocol.getString(), origin.getString())
+    if err != nil {
+        log.Fatal(err)
+    }
+        go func () {
+            for {
+                var msg = make([]byte, 512)
+                var n int
+                if n, err = ws.Read(msg); err != nil {
+                    log.Fatal(err)
+                }
+                //fmt.Printf("Received: %s.\n", msg[:n])
+                rqueue<-NewBytes(msg[:n], ne.environment)
+        }}()
+
+        go func () {
+            for {
+                    msg := <- wqueue
+                        emit(fmt.Sprintf("Sending %v\n", msg.getString()))
+                        if _, err := ws.Write([]byte(msg.getString())); err != nil {
+                    log.Fatal(err)
+                }
+            }
+        }()
+
+        ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
+		return ne}))
+
 
 		e=add(e, "RPCSERVER",  NewCode("RPCSERVER", 0, func (ne *Engine,c *Thingy) *Engine {
 		rpc_server("127.0.0.1:80")
@@ -1885,7 +1947,7 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 		path, ne.dataStack = popStack(ne.dataStack)
 		defer func() {
         if r := recover(); r != nil {
-            fmt.Println("Failed to retrieve ",path.getSource(), " because ",  r)
+            emit(fmt.Sprintln("Failed to retrieve ",path.getSource(), " because ",  r))
 			ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
 			re=ne
         }
@@ -1910,12 +1972,12 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 
 	e=add(e, "EXIT",  NewCode("EXIT", 0, func (ne *Engine,c *Thingy) *Engine {
 		/*for f, m := range ne._heatMap {
-			fmt.Println("Hotspots in file ", f)
+			emit(fmt.Sprintln("Hotspots in file ", f))
 			for i, v := range m {
-				fmt.Printf("%d: %d\n", i,v)
+				emit(fmt.Sprintf("%d: %d\n", i,v))
 			}
 		}*/
-		fmt.Println("Goodbye")
+		emit(fmt.Sprintln("Goodbye"))
 		os.Exit(0)
 		return e}))
 
@@ -1975,10 +2037,10 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 
 
 		ifi,_ := net.InterfaceByName(el.getString())
-		fmt.Printf("%v\n", ifi)
+		emit(fmt.Sprintf("%v\n", ifi))
 		arp,_ := arp.NewClient(ifi)
 		s := net.ParseIP(el1.getString())
-		fmt.Printf("%V\n", s)
+		emit(fmt.Sprintf("%V\n", s))
 		addr, _ := arp.Resolve(s)
 
 		ne.dataStack = pushStack(ne.dataStack, NewString(string(addr), nil))
@@ -2150,6 +2212,14 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             return ne
         }))
 
+        e=add(e, "BYTE2STR",  NewCode("BYTE2STR", 0, func (ne *Engine,c *Thingy) *Engine {
+            var el *Thingy
+            el, ne.dataStack = popStack(ne.dataStack)
+            var b []byte = el._bytesVal
+            var str string  = string(b[:len(b)])
+            ne.dataStack = pushStack(ne.dataStack, NewString(str, ne.environment))
+            return ne
+        }))
 
 
 
