@@ -1,3 +1,5 @@
+// +build !android
+
 // Copyright Jeremy Price - Praeceptamachinae.com
 //
 //Released under the artistic license 2.0
