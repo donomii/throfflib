@@ -72,8 +72,8 @@ type Thingy struct {
 type stack []*Thingy
 type Engine struct {
 	//previousEngine	*Engine
-	dataStack 			stack				//The argument stack
 	environment 		*Thingy  			//The current lexical environment
+	dataStack 			stack				//The argument stack
     dyn                 stack               //The current dynamic environment
 	codeStack			stack				//The future of the program
 	lexStack			stack
@@ -225,6 +225,7 @@ func cloneEnv(env *Thingy) *Thingy{
 
 func add(e *Engine, s string, t *Thingy) *Engine {
 	ne := cloneEngine(e, false)
+	t._note = s
 	ne.environment._hashVal[s] = t
 	//t.environment = ne.environment
 	t.share_parent_environment=true
@@ -466,7 +467,6 @@ func dumpEnv ( e *Thingy ) {
 
 //The core of the interpreter.  Each step advances the program by one command
 func doStep(e *Engine) (*Engine, bool) {
-
 	if len(e.codeStack)>0 {											//If there are any instructions left
 		var v, lex *Thingy
         var dyn stack
@@ -581,14 +581,14 @@ func StringsToTokens (stringBits []string) stack {
 
 func engineDump (e *Engine) {
 		emit(fmt.Sprintf("Stack: %v, Code: %v, Environment: %v items\n", len(e.dataStack), len(e.codeStack), len(e.environment._hashVal)))
-		emit(fmt.Sprintf("=========================================================================\n"))
+		emit(fmt.Sprintf("---------------------------"))
 		emit(fmt.Sprintf("|| code: "))
 		stackDump(e.codeStack)
 		emit(fmt.Sprintf("\n"))
 		emit(fmt.Sprintf("|| data: "))
 		stackDump(e.dataStack)
 		emit(fmt.Sprintf("\n"))
-		emit(fmt.Sprintf("=========================================================================\n"))
+		emit(fmt.Sprintf("----------------------------"))
 }
 func run (e *Engine) (*Engine, bool) {
 	ok := true
@@ -2223,7 +2223,22 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 
 
 
+		e=add(e, "CLEARSTACK",  NewCode("CLEARSTACK", 9999, func (ne *Engine,c *Thingy) *Engine {
+            ne.dataStack 	=	stack{}				//The argument stack
+			ne.dyn			=	stack{}               //The current dynamic environment
+			ne.codeStack	=	stack{}				//The future of the program
+			ne.lexStack		=	stack{}
 
+		    return ne
+        }))
+		e=add(e, "SIN",  NewCode("SIN", 0, func (ne *Engine,c *Thingy) *Engine {
+            var arg *Thingy
+            arg , ne.dataStack = popStack(ne.dataStack)
+			var in,_ = strconv.ParseFloat( arg.getSource() , 32 )
+			var ret = math.Sin(in)
+            ne.dataStack = pushStack(ne.dataStack, NewString(fmt.Sprintf("%v", ret),ne.environment))
+		    return ne
+        }))
 
 	//fmt.Println("Done")
 	return e
