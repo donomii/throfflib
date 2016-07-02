@@ -1,4 +1,4 @@
-// +build !android
+// !build !android
 
 // Copyright Jeremy Price - Praeceptamachinae.com
 //
