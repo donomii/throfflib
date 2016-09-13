@@ -1,8 +1,22 @@
+package throfflib
 // Copyright Jeremy Price - Praeceptamachinae.com
 //
 //Released under the artistic license 2.0
 
-package throfflib
+
+/*
+#include <stdlib.h>
+
+typedef float (*jitfunc)(float a, float b);
+
+static float call(jitfunc f,float a, float b) {
+    return f(a, b);
+}
+*/
+import "C"
+
+import "unsafe"
+import "github.com/thinxer/go-tcc"
 import "math/big"
 import "fmt"
 import "time"
@@ -2239,6 +2253,48 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             ne.dataStack = pushStack(ne.dataStack, NewString(fmt.Sprintf("%v", ret),ne.environment))
 		    return ne
         }))
+      e=add(e, "MAKEJIT",  NewCode("MAKEJIT", -1, func (ne *Engine,c *Thingy) *Engine {
+          //var el, el_arr *Thingy
+
+          s := tcc.New()
+
+          if err := s.Compile(`
+            float jit_func(float a, float b) {
+                return a*b;
+            }`); err != nil {
+            log.Fatal(err)
+          }
+          running := NewWrapper(s)
+
+          var ret *Thingy
+          ret = running
+
+          ne.dataStack = pushStack(ne.dataStack, ret)
+          return ne
+        }))
+
+      e=add(e, "RUNJIT",  NewCode("RUNJIT", 0, func (ne *Engine,c *Thingy) *Engine {
+          var jitwrap *Thingy
+
+          jitwrap , ne.dataStack = popStack(ne.dataStack)
+          jit := jitwrap._structVal.(*tcc.State)
+
+          a:= C.float(2.0)
+          b:= C.float(3.0)
+
+          p, err := jit.Symbol("jit_func")
+          if err != nil {
+            log.Fatal(err)
+          }
+
+          n := float64(C.call(C.jitfunc(unsafe.Pointer(p)), a, b))
+
+
+          ne.dataStack=pushStack(ne.dataStack,NewString(fmt.Sprintf("%v", n), e.environment))
+          return ne
+        }))
+
+
 
 	//fmt.Println("Done")
 	return e
