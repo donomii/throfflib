@@ -12,10 +12,11 @@ DEFINE IFFY => [ IF TRUTHY ]
 DEFINE TRUTHY => [
 
        CASE A[
-               EQUAL 0 X               ...     FALSE
-               LESSTHAN X 0    ...     FALSE
+               EQUAL 0 X             ... FALSE
+               LESSTHAN X 0          ... FALSE
+               EQUAL FALSE X         ... FALSE
                NOT EQUAL 0  LENGTH X ... TRUE
-               DEFAULT                 ...     TRUE
+               DEFAULT               ... TRUE
        ]A
 
        ARG X =>
@@ -57,7 +58,7 @@ DEFINE CASE => [
 ]
 
 DEFINE ... => [ ]
-DEFINE EMPTY? => [ LESSTHAN SWAP 1 LENGTH ]
+DEFINE EMPTY? => [ EQUAL 0 LENGTH ]
 
 
 
