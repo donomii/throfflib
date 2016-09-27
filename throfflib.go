@@ -2000,7 +2000,7 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		var val int
-		if el.tiipe =="ARRAY" {
+		if el.tiipe =="ARRAY" || el.tiipe =="LAMBDA" || el.tiipe =="CODE" {
 			val = len(el._arrayVal)
 		}
 		if el.tiipe =="STRING" {
