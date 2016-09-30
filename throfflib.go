@@ -41,6 +41,7 @@ import "database/sql"
 import "github.com/mdlayher/arp"
 import ( _ "github.com/mattn/go-sqlite3" )
 import "golang.org/x/net/websocket"
+import "github.com/chzyer/readline"
 
 var precision uint = 256
 var interpreter_debug = false
@@ -626,17 +627,90 @@ func (e *Engine) LoadTokens (s stack)  {
 	//e.codeStack = s
 }
 
+
+// Function constructor - constructs new function for listing given directory
+func listFiles(path string) func(string) []string {
+    return func(line string) []string {
+        names := make([]string, 0)
+        files, _ := ioutil.ReadDir(path)
+        for _, f := range files {
+            names = append(names, f.Name())
+        }
+        return names
+    }
+}
+
+var completer = readline.NewPrefixCompleter(
+    readline.PcItem("mode",
+        readline.PcItem("vi"),
+        readline.PcItem("emacs"),
+    ),
+    readline.PcItem("login"),
+    readline.PcItem("say",
+        readline.PcItemDynamic(listFiles("./"),
+            readline.PcItem("with",
+                readline.PcItem("following"),
+                readline.PcItem("items"),
+            ),
+        ),
+        readline.PcItem("hello"),
+        readline.PcItem("bye"),
+    ),
+    readline.PcItem("setprompt"),
+    readline.PcItem("setpassword"),
+    readline.PcItem("bye"),
+    readline.PcItem("help"),
+    readline.PcItem("go",
+        readline.PcItem("build", readline.PcItem("-o"), readline.PcItem("-v")),
+        readline.PcItem("install",
+            readline.PcItem("-v"),
+            readline.PcItem("-vv"),
+            readline.PcItem("-vvv"),
+        ),
+        readline.PcItem("test"),
+    ),
+    readline.PcItem("sleep"),
+)
+
 func Repl (e *Engine) *Engine {
+    l, err := readline.NewEx(&readline.Config{
+        Prompt:          "Throff \033[31m»\033[0m ",
+        HistoryFile:     "/tmp/readline.tmp",
+        AutoComplete:    completer,
+        InterruptPrompt: "^C",
+        EOFPrompt:       "exit",
+    })
+    if err != nil {
+        panic(err)
+    }
+    defer l.Close()
+    log.SetOutput(l.Stderr())
+
+    return realRepl(e, l)
+}
+
+func realRepl (e *Engine, rl *readline.Instance) *Engine {
 	//engineDump(e)
 	emit(fmt.Sprintf("Ready> "))
-	reader := bufio.NewReader(os.Stdin)
-	text, _ := reader.ReadString('\n')
+	//reader := bufio.NewReader(os.Stdin)
+	//text, _ := reader.ReadString('\n')
+    line, err := rl.Readline()
+        if err == readline.ErrInterrupt {
+            if len(line) == 0 {
+                return e
+            } else {
+                //continue
+            }
+        } else if err == io.EOF {
+            return e
+        }
+    text := line
 	if (len(text)>0) {
 		e.LoadTokens(tokenise(text, "repl"))
 		//stackDump(e.codeStack)
 		e,_=run(e)
 		emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].getString()))
-		Repl(e)
+		realRepl(e,rl)
 		return e
 	} else {
 		return e
