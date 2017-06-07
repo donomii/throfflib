@@ -3,7 +3,7 @@ package throfflib
 //
 //Released under the artistic license 2.0
 
-
+// #cgo CFLAGS: -IC:/Users/user/Desktop/Dropbox/goProjects/src/github.com/thinxer/go-tcc
 /*
 #include <stdlib.h>
 
@@ -2227,7 +2227,7 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             var el, el_arr *Thingy
             el, ne.dataStack = popStack(ne.dataStack)
             el_arr, ne.dataStack = popStack(ne.dataStack)
-            
+
             var argv = []string{el.getString()}
             //fmt.Printf("$V", el_arr._arrayVal)
             for _,v := range el_arr._arrayVal {
@@ -2282,7 +2282,7 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
             ne.dataStack = pushStack(ne.dataStack, ret)
             return ne
         }))
- 
+
         e=add(e, "WAITPROC",  NewCode("WAITPROC", 1, func (ne *Engine,c *Thingy) *Engine {
             var el *Thingy
             el, ne.dataStack = popStack(ne.dataStack)
@@ -2373,5 +2373,3 @@ e=add(e, "READSOCKETLINE",  NewCode("READSOCKETLINE", 0, func (ne *Engine,c *Thi
 	//fmt.Println("Done")
 	return e
 }
-
-
