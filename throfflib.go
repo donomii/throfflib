@@ -139,7 +139,7 @@ func (t *Thingy) getString() string {
 			if i == 0 {
 				accum = fmt.Sprintf("%v", el.getString())
 			} else {
-				accum = fmt.Sprintf("%v  %v", accum, el.getString())
+				accum = fmt.Sprintf("%v %v", accum, el.getString())
 			}
 		}
 		return accum
@@ -201,32 +201,6 @@ func cloneEngine(t *Engine, immutable bool) *Engine {
 	return newt
 }
 
-func nameSpaceLookup(e *Engine, t *Thingy) (*Thingy, bool) {
-	key := t.getString()
-	val, ok := e.environment._hashVal[key]
-	if interpreter_debug {
-		emit(fmt.Sprintf("%p: Looking up: %v -> %v in %v\n", e.environment, key, val, e.environment))
-	}
-	if !ok {
-		var _, ok = strconv.ParseFloat(t.getSource(), 32) //Numbers don't need to be defined in the namespace
-		if ok != nil {
-			if e._safeMode {
-				emit(fmt.Sprintf("Warning: %v not defined at line %v\n", key, t._line))
-			}
-		}
-	}
-	return val, ok
-}
-
-func cloneMap(m map[string]*Thingy) map[string]*Thingy {
-	//fmt.Printf("Cloning map %v\n\n", m )
-	var nm = make(map[string]*Thingy, 1000)
-	for k, v := range m {
-		nm[k] = v
-	}
-	return nm
-}
-
 func cloneEnv(env *Thingy) *Thingy {
 	newEnv := clone(env)
 	newEnv._hashVal = cloneMap(env._hashVal)
@@ -252,7 +226,6 @@ func newThingy() *Thingy {
 		ne.dataStack = pushStack(ne.dataStack, c)
 		return ne
 	}
-
 	return t
 }
 
@@ -333,6 +306,7 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 //Whatever gets returned is pushed onto the code stack
 //Then on the next step, that Thing gets activated, usually moving itself to the data stack, or running some code
 //This can cause infinite loops if the token resolves to itself
+//So we should probably detect that and move it to the data stack, since that is probably what the user wanted?
 func NewToken(aString string, env *Thingy) *Thingy {
 	t := newThingy()
 	t.tiipe = "TOKEN"
@@ -448,12 +422,18 @@ func NewEngine() *Engine {
 	e._safeMode = false
 	return e
 }
+
+//Sometimes, we just don't want to do anything
 func NullStep(e *Engine) *Engine {
 	return e
 }
+
+//Note, it works on immutable stacks, giving us the ability to save old engine states
 func pushStack(s stack, v *Thingy) stack {
 	return append(s, v)
 }
+
+//Note, it works on immutable stacks, giving us the ability to save old engine states
 func popStack(s stack) (*Thingy, stack) {
 
 	if len(s) > 0 {

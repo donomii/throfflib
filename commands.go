@@ -29,7 +29,8 @@ import "github.com/mdlayher/arp"
 import (
 	_ "github.com/mattn/go-sqlite3"
 )
-import "golang.org/x/net/websocket"
+
+//import "golang.org/x/net/websocket"
 
 //Creates a new engine and populates it with the core functions
 func MakeEngine() *Engine {
@@ -1111,49 +1112,49 @@ func MakeEngine() *Engine {
 		http.ListenAndServe(":80", nil)
 		return ne
 	}))
+	/*
+		e = add(e, "WEBSOCKETCLIENT", NewCode("WEBSOCKETCLIENT", 0, func(ne *Engine, c *Thingy) *Engine {
+			var url, protocol, origin *Thingy
+			var q1, q2 *Thingy
+			url, ne.dataStack = popStack(ne.dataStack)
+			protocol, ne.dataStack = popStack(ne.dataStack)
+			origin, ne.dataStack = popStack(ne.dataStack)
+			q1, ne.dataStack = popStack(ne.dataStack)
+			q2, ne.dataStack = popStack(ne.dataStack)
 
-	e = add(e, "WEBSOCKETCLIENT", NewCode("WEBSOCKETCLIENT", 0, func(ne *Engine, c *Thingy) *Engine {
-		var url, protocol, origin *Thingy
-		var q1, q2 *Thingy
-		url, ne.dataStack = popStack(ne.dataStack)
-		protocol, ne.dataStack = popStack(ne.dataStack)
-		origin, ne.dataStack = popStack(ne.dataStack)
-		q1, ne.dataStack = popStack(ne.dataStack)
-		q2, ne.dataStack = popStack(ne.dataStack)
+			wqueue := q1._structVal.(chan *Thingy)
+			rqueue := q2._structVal.(chan *Thingy)
 
-		wqueue := q1._structVal.(chan *Thingy)
-		rqueue := q2._structVal.(chan *Thingy)
-
-		ws, err := websocket.Dial(url.getString(), protocol.getString(), origin.getString())
-		if err != nil {
-			log.Fatal(err)
-		}
-		go func() {
-			for {
-				var msg = make([]byte, 512)
-				var n int
-				if n, err = ws.Read(msg); err != nil {
-					log.Fatal(err)
-				}
-				//fmt.Printf("Received: %s.\n", msg[:n])
-				rqueue <- NewBytes(msg[:n], ne.environment)
+			ws, err := websocket.Dial(url.getString(), protocol.getString(), origin.getString())
+			if err != nil {
+				log.Fatal(err)
 			}
-		}()
-
-		go func() {
-			for {
-				msg := <-wqueue
-				emit(fmt.Sprintf("Sending %v\n", msg.getString()))
-				if _, err := ws.Write([]byte(msg.getString())); err != nil {
-					log.Fatal(err)
+			go func() {
+				for {
+					var msg = make([]byte, 512)
+					var n int
+					if n, err = ws.Read(msg); err != nil {
+						log.Fatal(err)
+					}
+					//fmt.Printf("Received: %s.\n", msg[:n])
+					rqueue <- NewBytes(msg[:n], ne.environment)
 				}
-			}
-		}()
+			}()
 
-		ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
-		return ne
-	}))
+			go func() {
+				for {
+					msg := <-wqueue
+					emit(fmt.Sprintf("Sending %v\n", msg.getString()))
+					if _, err := ws.Write([]byte(msg.getString())); err != nil {
+						log.Fatal(err)
+					}
+				}
+			}()
 
+			ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
+			return ne
+		}))
+	*/
 	e = add(e, "RPCSERVER", NewCode("RPCSERVER", 0, func(ne *Engine, c *Thingy) *Engine {
 		rpc_server("127.0.0.1:80")
 		return ne
@@ -1193,6 +1194,14 @@ func MakeEngine() *Engine {
 		}*/
 		emit(fmt.Sprintln("Goodbye"))
 		os.Exit(0)
+		return e
+	}))
+
+	e = add(e, "EXITw/CODE", NewCode("EXITw/CODE", 0, func(ne *Engine, c *Thingy) *Engine {
+		var el1 *Thingy
+		el1, ne.dataStack = popStack(ne.dataStack)
+		var n, _ = strconv.ParseInt(el1.getSource(), 10, 32)
+		os.Exit(int(n))
 		return e
 	}))
 
