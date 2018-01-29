@@ -1,0 +1,7 @@
+SHELLCMD [ dir | grep exe ]
+DEFINE SHELLCMD => LAMBDA [
+	STARTPROCESS C:\Windows\system32\cmd.exe args
+	PRINTLN args
+	BIND args => UNSHIFTARRAY /c CMD
+	BIND CMD =>
+	]
