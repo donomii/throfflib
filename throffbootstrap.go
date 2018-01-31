@@ -2,11 +2,31 @@ package throfflib
 func BootStrapString( ) string {
 
 
+
+
 	var str string
 	str =`
 
+	
+	
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
 
+	
+	
+	DEFINE SUBSHELL => LAMBDA [
+	IF EQUAL OS windows [ 
+		STARTPROCESS C:\Windows\system32\cmd.exe args 
+		PRINTLN args
+		BIND args => UNSHIFTARRAY /c CMD 
+	] [
+		STARTPROCESS /bin/sh args 
+		PRINTLN args
+		BIND args => UNSHIFTARRAY /c CMD 
+	]
+	PRINTLN CMD 
+	BIND CMD => 
+]
+	
 DEFINE IFFY => [ IF TRUTHY ]
 
 DEFINE TRUTHY => [
