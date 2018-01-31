@@ -26,6 +26,8 @@ import (
 
 )
 
+//Search for the value of t, in its assigned scope.
+//Throff uses a flat namespace, much like its predecessor forth, except that a new copy is made each time we enter a function.
 func nameSpaceLookup(e *Engine, t *Thingy) (*Thingy, bool) {
 	key := t.getString()
 	val, ok := e.environment._hashVal[key]

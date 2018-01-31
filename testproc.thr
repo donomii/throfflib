@@ -1,7 +1,19 @@
-SHELLCMD [ dir | grep exe ]
-DEFINE SHELLCMD => LAMBDA [
-	STARTPROCESS C:\Windows\system32\cmd.exe args
-	PRINTLN args
-	BIND args => UNSHIFTARRAY /c CMD
-	BIND CMD =>
+PRINTLN CMDSTDOUTSTDERR [ C:\Windows\system32\cmd.exe /c dir | grep exe ]
+PRINTLN CMDSTDOUTSTDERR [ wget -O- http://google.com ]
+
+PRINTLN OS
+
+DROP SUBSHELL [ dir | grep exe ]
+DEFINE SUBSHELL => LAMBDA [
+	IF EQUAL OS windows [ 
+		STARTPROCESS C:\Windows\system32\cmd.exe args 
+		PRINTLN args
+		BIND args => UNSHIFTARRAY /c CMD 
+	] [
+		STARTPROCESS /bin/sh args 
+		PRINTLN args
+		BIND args => UNSHIFTARRAY /c CMD 
 	]
+	PRINTLN CMD 
+	BIND CMD => 
+]

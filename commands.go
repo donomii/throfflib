@@ -25,7 +25,7 @@ import "html"
 import "log"
 import "io"
 import "database/sql"
-import "github.com/mdlayher/arp"
+import "os/exec"
 import (
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -1277,22 +1277,6 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "ARP", NewCode("ARP", 0, func(ne *Engine, c *Thingy) *Engine {
-		var el, el1 *Thingy
-		el, ne.dataStack = popStack(ne.dataStack)
-		el1, ne.dataStack = popStack(ne.dataStack)
-
-		ifi, _ := net.InterfaceByName(el.getString())
-		emit(fmt.Sprintf("%v\n", ifi))
-		arp, _ := arp.Dial(ifi)
-		s := net.ParseIP(el1.getString())
-		emit(fmt.Sprintf("%V\n", s))
-		addr, _ := arp.Resolve(s)
-
-		ne.dataStack = pushStack(ne.dataStack, NewString(string(addr), nil))
-		return ne
-	}))
-
 	e = add(e, "DNS.CNAME", NewCode("DNS.CNAME", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1385,6 +1369,36 @@ func MakeEngine() *Engine {
 		ne.dataStack = pushStack(ne.dataStack, ret)
 		return ne
 	}))
+	
+		
+	e = add(e, "OS", NewCode("OS", -1, func(ne *Engine, c *Thingy) *Engine {
+		ret := NewString(runtime.GOOS, nil)
+
+		ne.dataStack = pushStack(ne.dataStack, ret)
+		return ne
+	}))
+	
+	
+	e = add(e, "CMDSTDOUTSTDERR", NewCode("CMDSTDOUTSTDERR", 0, func(ne *Engine, c *Thingy) *Engine {
+		var el_arr *Thingy
+		el_arr, ne.dataStack = popStack(ne.dataStack)
+
+		var argv = []string{}
+		for _, v := range el_arr._arrayVal {
+			argv = append(argv, v.getString())
+		}
+		
+		cmd := exec.Command(argv[0],argv[1:]...)
+		stdoutStderr, _ := cmd.CombinedOutput()
+
+		ret := NewString(string(stdoutStderr), nil)
+
+		ne.dataStack = pushStack(ne.dataStack, ret)
+		return ne
+	}))
+	
+	
+	
 	e = add(e, "STARTPROCESS", NewCode("STARTPROCESS", 1, func(ne *Engine, c *Thingy) *Engine {
 		var el, el_arr *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
