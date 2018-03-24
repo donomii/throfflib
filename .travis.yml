@@ -5,4 +5,5 @@ go:
   - master
 before_install:
   - sudo apt-get -qq update
-  - sudo apt-get install -y libportaudio-dev libglfw3 libxrandr-dev
+  - sudo apt-get install -y libportaudio-dev libxrandr-dev
+  - git clone https://github.com/glfw/glfw && mkdir build && cd build && cmake ../glfw && make -j4 && sudo make install
