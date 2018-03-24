@@ -6,5 +6,5 @@ go:
 before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y libportaudio-dev libxrandr-dev libxinerama-dev  libxinerama1
-  - apt-get build-dep libglfw
+  - sudo apt-get build-dep libglfw
   - git clone https://github.com/glfw/glfw && mkdir build && cd build && cmake ../glfw && make -j4 && sudo make install
