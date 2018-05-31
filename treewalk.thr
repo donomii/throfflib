@@ -1,0 +1,61 @@
+PRINTLN [ Finished foldtree test ]
+PRINTLN FOLDTREE [ ADD 1 DROP  ] 1 A[ B  [ C ]  A[ a b ]A ]A
+PRINTLN [ Starting foldtree test ]
+PRINTLN [ Finished treewalk test ]
+TREEWALK [ PRINTLN  ] A[     B  [ C ]  A[ a b ]A ]A
+PRINTLN [ Starting treewalk test ]
+
+
+DEFINE FOLDTREE => [
+  CASE A[
+   EQUAL GETTYPE tree [ HASH ]   ... [
+   PRINTLN  } TOK
+    FOLDHASH [ FOLDTREE func ] carryover tree
+	PRINTLN  { TOK
+	]
+   EQUAL GETTYPE tree [ ARRAY ]  ... [
+    PRINTLN  \] TOK
+	FOLD [ FOLDTREE func  ] carryover tree
+	PRINTLN  \[ TOK 
+	
+	]
+   DEFAULT ... [
+	CALL func carryover tree
+    ]
+  ]A
+  COMMENT [ 
+  p type is GETTYPE tree CRLF ;
+  p Starting treewalk on tree CRLF ;
+  ]
+  ARG tree
+  ARG carryover
+  ARG func
+]
+
+DEFINE TREEWALK => [
+  CASE A[
+   EQUAL GETTYPE tree [ HASH ]   ... [
+   PRINTLN  } TOK
+    HASHITERATE [ TREEWALK func  ] tree
+	
+	PRINTLN  { TOK
+	]
+   EQUAL GETTYPE tree [ ARRAY ]  ... [
+    PRINTLN  \] TOK
+	ITERATE [ TREEWALK func  ] tree
+	PRINTLN  \[ TOK 
+	
+	]
+   DEFAULT ... [
+	CALL func tree
+	
+    ]
+  ]A
+  COMMENT [ 
+  p type is GETTYPE tree CRLF ;
+  p Starting treewalk on tree CRLF ;
+  ]
+  ARG tree
+  ARG func
+]
+
