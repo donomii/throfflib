@@ -357,7 +357,7 @@ func MakeEngine() *Engine {
 	}))
 
 	e = add(e, "[", NewCode("BuildFuncFromStack", 9001, func(ne *Engine, c *Thingy) *Engine {
-		ne._funcLevel += 1
+		ne._funcLevel += 1 //To match the ] we will find on the stack
 		var f stack
 		ne = buildFunc(ne, f)
 		newFunc, _ := popStack(ne.dataStack)
