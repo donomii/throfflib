@@ -463,13 +463,14 @@ func doStep(e *Engine) (*Engine, bool) {
 	if len(e.codeStack) > 0 { //If there are any instructions left
 		var v, lex *Thingy
 		var dyn stack
-		//v, _ = popStack(e.codeStack)
 		ne := cloneEngine(e, false) //Clone the current engine state.  The false means "do not clone the lexical environment" i.e. it
 		//will be common to this step and the previous step.  Otherwise we would be running in fully
 		//immutable mode (to come)
 		v, ne.codeStack = popStack(ne.codeStack) //Pop an instruction off the instruction stack.  Usually a token, but could be data or native code
 		lex, ne.lexStack = popStack(ne.lexStack)
 		dyn = lex.errorChain
+		
+		//Move to own routine?
 		if v._line != 0 && len(v._filename) > 1 {
 			m := ne._heatMap[v._filename]
 			if m == nil {
@@ -603,7 +604,6 @@ func (e *Engine) LoadTokens(s stack) {
 		e.lexStack = pushStack(e.lexStack, e.environment)
 	} //All tokens start off sharing the root environment
 	e.codeStack = append(e.codeStack, s...)
-	//e.codeStack = s
 }
 
 // Function constructor - constructs new function for listing given directory
