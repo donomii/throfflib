@@ -12,6 +12,7 @@ func BootStrapString( ) string {
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
 
 	
+	DEFINE WATCH => [ FOREVER [ p CMDSTDOUTSTDERR F ; SLEEP N ] ARG F ARG N ]
 	
 	DEFINE SUBSHELL => LAMBDA [
 	IF EQUAL OS windows [ 
@@ -120,7 +121,7 @@ DEFINE REVERSE => [
 
 
 
-	 DEFINE AND => [ IF EQUAL A B [ IF EQUAL A TRUE TRUE FALSE ] FALSE : B : A ]
+DEFINE AND => [ IF EQUAL A B [ IF EQUAL A TRUE TRUE FALSE ] FALSE : B : A ]
 
 DEFINE PROMISE => [
         ->FUNC [
