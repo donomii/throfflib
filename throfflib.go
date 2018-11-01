@@ -61,7 +61,7 @@ type Thingy struct {
 	_note                    string
 	arity                    int    //The number of arguments this function pops off the stack, minus the number of return results`
 	_intVal                  int    //Currently used for booleans, will also be used to cache string->int conversions
-	_id                      int    //Every token gets a unique id number, this allows us to do JIT on the code, amoung other tricks
+	_id                      int    //Every token gets a unique id number, this allows us to do JIT on the code, among other tricks
 	_line                    int    //Line number of instruction
 	_filename                string //The source code file this instruction was written in
 	codeStackConsume         int    //When the functions are cached, we need to know how long they are, and skip the build phase by popping this many Thingys off the code stack
@@ -469,7 +469,7 @@ func doStep(e *Engine) (*Engine, bool) {
 		v, ne.codeStack = popStack(ne.codeStack) //Pop an instruction off the instruction stack.  Usually a token, but could be data or native code
 		lex, ne.lexStack = popStack(ne.lexStack)
 		dyn = lex.errorChain
-		
+
 		//Move to own routine?
 		if v._line != 0 && len(v._filename) > 1 {
 			m := ne._heatMap[v._filename]
@@ -538,7 +538,7 @@ func SlurpFile(fname string) string {
 }
 
 func tokenise(s string, filename string) stack {
-	var line int = 1
+	var line int = 0
 	s = strings.Replace(s, "\n", " LINEBREAKHERE ", -1)
 	s = strings.Replace(s, "\r", " ", -1)
 	s = strings.Replace(s, "\t", " ", -1)
