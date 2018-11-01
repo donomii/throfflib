@@ -2,18 +2,18 @@
 //
 // These functions provide lexical scoping.
 //
-/* The strategy is: every time we enter a scope (e.g. a function), 
- we copy the current scope.  Yes, all of it.  Not the values, which are 
+/* The strategy is: every time we enter a scope (e.g. a function),
+ we copy the current scope.  Yes, all of it.  Not the values, which are
  references, but we do copy all the bindings.
 
 This is horribly inefficient, but does give us the lexical behaviour that
 I want.  Variables inside this scope are "mutable", variables outside this
 scope are "immutable".  You can shadow a variable from an outer scope, but
 you can't actually alter it for any other part of the code.  This means that
-the only way to send data back to the parent scope is by returning a value, 
+the only way to send data back to the parent scope is by returning a value,
 either by exiting the function, or sending it through a queue.
 
-This minimises the ability of programmers to accidentally cause errors in 
+This minimises the ability of programmers to accidentally cause errors in
 other routines, while still allowing reasonably natural code.
 
 */
@@ -23,7 +23,6 @@ package throfflib
 import (
 	"fmt"
 	"strconv"
-
 )
 
 //Search for the value of t, in its assigned scope.
@@ -37,8 +36,10 @@ func nameSpaceLookup(e *Engine, t *Thingy) (*Thingy, bool) {
 	if !ok {
 		var _, ok = strconv.ParseFloat(t.getSource(), 32) //Numbers don't need to be defined in the namespace
 		if ok != nil {
+			//Maybe enable this once we reduce the amount of bad code a bit.  Or add a "nag" option
+			//emit(fmt.Sprintf("Warning: %v not defined at line %v\n", key, t._line))
 			if e._safeMode {
-				emit(fmt.Sprintf("Warning: %v not defined at line %v\n", key, t._line))
+				panic(fmt.Sprintf("Error: %v not defined at line %v\n", key, t._line))
 			}
 		}
 	}
