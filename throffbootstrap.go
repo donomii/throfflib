@@ -1,15 +1,67 @@
 package throfflib
-func BootStrapString( ) string {
 
-
-
+func BootStrapString() string {
 
 	var str string
-	str =`
-
-	
-	
+	str = `
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
+
+
+
+NAMETESTBLOCK [ func definition ] [
+
+	TEST 0 t_add [ ] [ Add empty list ]
+	
+	TEST 25 t_add [ 3 4 5 6 7 ] [ Add many numbers ]
+		
+	TEST 6 tf [ 1 2 3 ] [ Test function with automatic args ]
+
+	DEFINE t_add => varfunc [ ] [ FOLD [ ADD ] 0 params ]
+
+	DEFINE tf => func [ a b c ] [ ADD a ADD b c ]
+]
+
+DEFINE varfunc => [
+	
+		LAMBDA [
+			CALL newF
+			
+			
+			BIND newF => SETENV f newEnv
+			BIND newEnv => SETHASH params TOK params env
+			
+		ARG params => ]
+	
+	BIND env => ENVIRONMENTOF f
+
+ARG f => ARG args => ]
+
+DEFINE func => [
+
+	LAMBDA [
+			CALL newF
+			
+			
+			BIND newF => SETENV f newnewEnv
+			BIND newnewEnv => SETHASH params TOK params newEnv
+			BIND newEnv => FOLD [ SETHASH 
+										GETARRAY i args 
+										GETARRAY i params
+										accum     
+										ARG accum => ARG i => ] env  IOTA LENGTH args 
+										
+			WHEN NOT EQUAL   LENGTH params  LENGTH args [ THROW [ Argument length mismatch! ] ]
+			ARG params => ]
+		
+		BIND env => ENVIRONMENTOF f
+	
+	ARG f => ARG args => ]
+
+NAMETESTBLOCK [ Iota ] [
+	TEST IOTA 3 A[ 0 1 2 ]A [ Iota ]
+]
+
+DEFINE IOTA => [ RANGE 0 SUB1 ]
 
 	
 	DEFINE WATCH => [ FOREVER [ p CMDSTDOUTSTDERR F ; SLEEP N ] ARG F ARG N ]
@@ -203,7 +255,7 @@ DEFINE MIME => [
 DEFINE FOREVER => [ FOREVER CALL DUP ]
 
 
-TESTBLOCK [
+NAMETESTBLOCK [ WITH statement ] [
 
 TEST  wonkyA   1  [ WITH STATEMENT ]
 
@@ -212,6 +264,44 @@ TEST  wonkyA   1  [ WITH STATEMENT ]
 BIND TESTHASH => H[ wonkyA 1 B 2 C 3 ]H
 
 ]
+
+
+
+NAMETESTBLOCK [ WITA statment ] [
+
+TEST  c  3  [ WITA STATEMENT ]
+
+TEST  b  2  [ WITA STATEMENT ]
+
+TEST  a  1  [ WITA STATEMENT ]
+
+ WITA   [ a b c ] FROM TESTARRAY
+
+BIND TESTARRAY => A[ 1 2 3 ]A
+
+]
+
+DEFINE WITA =>   MACRO [
+
+	ITERATE THIN [
+
+		REBIND with_INDEX => ADD with_INDEX 1
+		BIND  with_Name GETARRAY with_INDEX  with_ANARRAY
+
+		REBIND with_Name =>
+
+
+	]  with_NAMES
+
+	d binding > with_NAMES <  from hash > with_ANARRAY < ;
+
+	BIND with_INDEX => 0
+	BIND with_N => WHOOPS
+	ARG with_ANARRAY =>
+	ARG with_FROM =>
+	ARG with_NAMES => ->ARRAY
+]
+
 
 DEFINE WITH =>   MACRO [
 
@@ -231,9 +321,6 @@ DEFINE WITH =>   MACRO [
 	ARG with_AHASH =>
 	ARG with_FROM =>
 	ARG with_NAMES => ->ARRAY
-
-
-
 ]
 
 
@@ -685,11 +772,7 @@ DEFINE SWAPARR =>  [
 	: A =>
 ]
 
-: SORT [
 
-
-	:ARR =>
-]
 
 
 
@@ -1256,7 +1339,7 @@ BIND CLOSE-FUNCTION-CHAR => NUM2CHAR 91
 BIND OPEN-SQUARE-BRACE-CHAR => NUM2CHAR 91
 BIND CLOSE-CURLY => ->STRING } TOK
 BIND OPEN-CURLY => ->STRING { TOK
-BIND , => ,
+BIND , => , TOK
 
 TESTBLOCK [
 
@@ -1338,7 +1421,7 @@ DEFINE HASHSET => [ SETHASH ROLL 2 ROLL 2 ]
 REBIND GETHASH => ->FUNC [
                    IF EQUAL HASH TOK  GETTYPE A-HASH
                       [  REAL-GETHASH A-KEY A-HASH ]
-                      [ EXIT PRINTLN A[ at line LOCATIONOF A-HASH ]A EMIT A-HASH EMIT SPACE EMIT [ GETHASH ERROR: EXPECTED HASH BUT GOT ]  ]
+                      [ EXIT PRINTLN A[ SPACE at line LOCATIONOF A-HASH in file FILEOF A-HASH ]A EMIT A-HASH EMIT SPACE EMIT [ GETHASH ERROR: EXPECTED HASH BUT GOT ]  ]
                       ARG A-HASH =>
                       ARG A-KEY  => ->STRING
                    ]
@@ -1410,7 +1493,7 @@ NAMETESTBLOCK [ Testing PICK ] [
 
 NAMETESTBLOCK [ Testing basics ] [
 	TEST  ->STRING COMPVAL TOK COMPVAL TOK  [ String/token equality ]
-	TEST 1 0  [  test failure  ]
+	TEST 1 0  [  test failure (this should fail)  ]
 	TEST 1 1  [  test itself  ]
 ]
 
@@ -1432,7 +1515,7 @@ DEFINE STATEMENT TOK [
 	: NAME TOK
 ]
 
-DEFINE NAMETESTBLOCK [ IF RUNTESTS [ TESTBLOCK PRINTLN ] [ DROP DROP ] ]
+DEFINE NAMETESTBLOCK TOK [ IF RUNTESTS [ TESTBLOCK PRINTLN ] [ DROP DROP ] ]
 
 DEFINE TESTBLOCK TOK [
 	IF RUNTESTS [
@@ -1460,7 +1543,7 @@ DEFINE TEST TOK [
 		IF EQUAL EXPECTED TESTVAR
 		[ PRINTLN ->STRING [ ... Test passed ] ]
 		[
-			PRINTLN TESTVAR  EMIT SPACE EMIT [ but got ]
+			PRINTLN TESTVAR  EMIT SPACE EMIT SPACE EMIT [ but got ]
 			EMIT EXPECTED EMIT SPACE  EMIT [ Expected ]
 			EMIT [ ... Test failed ... ]
 		]
@@ -1567,22 +1650,24 @@ COMMENT [ BASIC FUNCTIONS DEFINED! ]
 COMMENT [ LOADING STANDARD LIBRARY .... ]
 : COMMENT TOK ->FUNC [ DROP ]
 : ->FUNC TOK SETTYPE CODE TOK [ SETTYPE CODE TOK ]
+
+
+: RUNTESTS TOK TRUE
+
 : FALSE TOK EQUAL 0 1
 : TRUE TOK EQUAL 1 1
 
 
 
 
-: RUNTESTS TRUE
 
 
 ITROFF
 IDEBUGOFF
 DEBUGOFF
- ->FUNC [ EXIT .S PRINTLN [ ERROR: Read past stack bottom attempted ]  ]
 
-
+SETTYPE CODE TOK [ EXIT .S PRINTLN [ ERROR: Read past stack bottom attempted ]  ]
 `
 
-return str
+	return str
 }
