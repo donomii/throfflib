@@ -487,6 +487,18 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
+	e = add(e, "SETENV", NewCode("SETENV", 1, func(ne *Engine, c *Thingy) *Engine {
+		var aFunc, anEnv, newFunc *Thingy
+		aFunc, ne.dataStack = popStack(ne.dataStack)
+		anEnv, ne.dataStack = popStack(ne.dataStack)
+		newFunc = clone(aFunc)
+		newFunc.environment = anEnv
+		ne.dataStack = pushStack(ne.dataStack, newFunc)
+
+		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
+		return ne
+	}))
+
 	e = add(e, "LOCATIONOF", NewCode("LOCATIONOF", 0, func(ne *Engine, c *Thingy) *Engine {
 		var aVal *Thingy
 		aVal, ne.dataStack = popStack(ne.dataStack)
@@ -494,6 +506,19 @@ func MakeEngine() *Engine {
 			emit(fmt.Sprintf("Location: %v\n", aVal._line))
 		}
 		H := NewString(fmt.Sprintf("%v", aVal._line), c.environment)
+		ne.dataStack = pushStack(ne.dataStack, H)
+
+		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
+		return ne
+	}))
+
+	e = add(e, "FILEOF", NewCode("FILEOF", 0, func(ne *Engine, c *Thingy) *Engine {
+		var aVal *Thingy
+		aVal, ne.dataStack = popStack(ne.dataStack)
+		if interpreter_debug {
+			emit(fmt.Sprintf("File: %v\n", aVal._filename))
+		}
+		H := NewString(fmt.Sprintf("%v", aVal._filename), c.environment)
 		ne.dataStack = pushStack(ne.dataStack, H)
 
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
@@ -1369,16 +1394,14 @@ func MakeEngine() *Engine {
 		ne.dataStack = pushStack(ne.dataStack, ret)
 		return ne
 	}))
-	
-		
+
 	e = add(e, "OS", NewCode("OS", -1, func(ne *Engine, c *Thingy) *Engine {
 		ret := NewString(runtime.GOOS, nil)
 
 		ne.dataStack = pushStack(ne.dataStack, ret)
 		return ne
 	}))
-	
-	
+
 	e = add(e, "CMDSTDOUTSTDERR", NewCode("CMDSTDOUTSTDERR", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el_arr *Thingy
 		el_arr, ne.dataStack = popStack(ne.dataStack)
@@ -1387,8 +1410,8 @@ func MakeEngine() *Engine {
 		for _, v := range el_arr._arrayVal {
 			argv = append(argv, v.getString())
 		}
-		
-		cmd := exec.Command(argv[0],argv[1:]...)
+
+		cmd := exec.Command(argv[0], argv[1:]...)
 		stdoutStderr, _ := cmd.CombinedOutput()
 
 		ret := NewString(string(stdoutStderr), nil)
@@ -1396,9 +1419,7 @@ func MakeEngine() *Engine {
 		ne.dataStack = pushStack(ne.dataStack, ret)
 		return ne
 	}))
-	
-	
-	
+
 	e = add(e, "STARTPROCESS", NewCode("STARTPROCESS", 1, func(ne *Engine, c *Thingy) *Engine {
 		var el, el_arr *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
