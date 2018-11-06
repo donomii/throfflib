@@ -86,6 +86,7 @@ type Engine struct {
 	_line          int
 	_heatMap       map[string][]int
 	_safeMode      bool
+	LastFunction   *Thingy
 }
 
 func (t *Thingy) setString(val string) {
@@ -101,6 +102,10 @@ func (t *Thingy) setStub(val StepFunc) {
 //Builds a string that, when EVALed, will recreate the data structure
 //The string might not be an exact representation of the data, but should recreate it perfectly
 func (t *Thingy) getSource() string {
+	if t.subType == "NATIVE" {
+		return t._source
+	}
+
 	if t.tiipe == "ARRAY" {
 		var accum string = "A[ "
 		for _, el := range t._arrayVal {
@@ -211,6 +216,7 @@ func cloneEnv(env *Thingy) *Thingy {
 func add(e *Engine, s string, t *Thingy) *Engine {
 	ne := cloneEngine(e, false)
 	t._note = s
+	t._source = s
 	ne.environment._hashVal[s] = t
 	//t.environment = ne.environment
 	t.share_parent_environment = true
@@ -450,11 +456,12 @@ func dumpEnv(e *Thingy) {
 	if e != nil {
 		emit(fmt.Sprintf("===Env=== %p\n", e))
 		keys := make([]string, 0, len(e._hashVal))
-		for k, _ := range e._hashVal {
-			keys = append(keys, k)
+		for k, v := range e._hashVal {
+			keys = append(keys, k+":"+v.getSource()+"\n")
 		}
 		sort.Strings(keys)
 		emit(fmt.Sprintln(keys))
+		emit(fmt.Sprintf("===End Env=== %p\n", e))
 	}
 }
 
@@ -520,7 +527,7 @@ func doStep(e *Engine) (*Engine, bool) {
 				return ne, true
 			} else {
 				if v.tiipe == "CODE" {
-					emit(fmt.Sprintln(fmt.Sprintf("Arity mismatch in native function! %v claimed %v, but actually took %v\n", v.getSource(), v.arity, (oldlen - newlen))))
+					emit(fmt.Sprintln(fmt.Sprintf("Arity mismatch in native function! %v claimed %v, but actually took %v\n", v.getSource(), v.arity, (oldlen - newlen)))) //FIXME name not printing
 
 				}
 				return ne, true
@@ -748,21 +755,20 @@ func buildFuncStepper(e *Engine, c *Thingy) *Engine {
 			lexical_env = cloneEnv(c.environment) //Copy the lexical environment to make a new environment for this function (e.g. think of recursion)
 			lexical_env.errorChain = e.dyn
 		}
-		//var newArr stack
-		//copy(newArr,c._arrayVal)
+		//Take all the words (the functions) from the current function definition and push them onto the code stack
 		for _, ee := range c._arrayVal {
-			//t := clone(ee)
-			//t.environment = lexical_env
 			ne.codeStack = pushStack(ne.codeStack, ee)
 			ne.lexStack = pushStack(ne.lexStack, lexical_env)
-		} //Make a string->token function?
+		}
 	} else {
+		//If it's not code, it's data, so it goes on the data stack
 		ne.dataStack = pushStack(ne.dataStack, c)
 	}
+	ne.LastFunction = c //We need a way for functions to get a reference to themselves, in a similar way that objects usually get a "self" or "this" variable
 	return ne
 }
 
-//Recurse down the stack, picking up words and collecting them in the stack f. f will become our function.
+//Recurse down the data stack, picking up words and collecting them in the stack f. f will become our function.
 func buildFunc(e *Engine, f stack) *Engine {
 	var v *Thingy
 	ne := cloneEngine(e, false)

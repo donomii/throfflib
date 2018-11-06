@@ -8,55 +8,6 @@ func BootStrapString() string {
 
 
 
-NAMETESTBLOCK [ func definition ] [
-
-	TEST 0 t_add [ ] [ Add empty list ]
-	
-	TEST 25 t_add [ 3 4 5 6 7 ] [ Add many numbers ]
-		
-	TEST 6 tf [ 1 2 3 ] [ Test function with automatic args ]
-
-	DEFINE t_add => varfunc [ ] [ FOLD [ ADD ] 0 params ]
-
-	DEFINE tf => func [ a b c ] [ ADD a ADD b c ]
-]
-
-DEFINE varfunc => [
-	
-		LAMBDA [
-			CALL newF
-			
-			
-			BIND newF => SETENV f newEnv
-			BIND newEnv => SETHASH params TOK params env
-			
-		ARG params => ]
-	
-	BIND env => ENVIRONMENTOF f
-
-ARG f => ARG args => ]
-
-DEFINE func => [
-
-	LAMBDA [
-			CALL newF
-			
-			
-			BIND newF => SETENV f newnewEnv
-			BIND newnewEnv => SETHASH params TOK params newEnv
-			BIND newEnv => FOLD [ SETHASH 
-										GETARRAY i args 
-										GETARRAY i params
-										accum     
-										ARG accum => ARG i => ] env  IOTA LENGTH args 
-										
-			WHEN NOT EQUAL   LENGTH params  LENGTH args [ THROW [ Argument length mismatch! ] ]
-			ARG params => ]
-		
-		BIND env => ENVIRONMENTOF f
-	
-	ARG f => ARG args => ]
-
 NAMETESTBLOCK [ Iota ] [
 	TEST IOTA 3 A[ 0 1 2 ]A [ Iota ]
 ]
@@ -1467,9 +1418,13 @@ DEFINE ) TOK [ ]
 TESTBLOCK [
 	TEST STRING-CONCATENATE A TOK B TOK AB TOK ->STRING [ STRING-CONCATENATE ]
 ]
+
+ALIAS _ => SPACE
+COMMENT [
 DEFINE _ TOK  [ STRING-CONCATENATE STRING-CONCATENATE SWAP SPACE ]
 
 DEFINE CD TOK [ _ SWAP ]
+]
 
 DEFINE LS TOK MACRO [ DIRECTORY-LIST CWD ]
 
@@ -1531,7 +1486,8 @@ DEFINE TESTBLOCK TOK [
 		MARKER
 
 
-		: MARKER TOK STRING-CONCATENATE STACKMARKER:  TESTS
+		: MARKER TOK STRING-CONCATENATE STACKMARKER: TOK TESTS
+		
 	]
 	[ ]
 
