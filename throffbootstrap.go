@@ -6,16 +6,34 @@ func BootStrapString() string {
 	str = `
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
 
+DEFINE SWATCH => [ 
+CALL/SELF [
+	RECURSE SELF f delay
+	PRINTLN SHELL f 
+	SLEEP delay 
+	ARG delay => ARG f => ARG SELF =>  ]
+	]
 
 
-NAMETESTBLOCK [ Iota ] [
-	TEST IOTA 3 A[ 0 1 2 ]A [ Iota ]
-]
+DEFINE WATCH => [
+ 	CALL/SELF [
+	RECURSE SELF f delay
+	PRINTLN CALL f 
+	SLEEP delay 
+	ARG delay => ARG f => ARG SELF => ]
+	]
 
-DEFINE IOTA => [ RANGE 0 SUB1 ]
+DEFINE RECURSE =>   [ CALLWITHSELF ]
+DEFINE CALL/SELF => [ CALLWITHSELF ]
+DEFINE CALLWITHSELF => [ CALL DUP ]
+
+	NAMETESTBLOCK [ Iota ] [
+		TEST IOTA 3 A[ 0 1 2 ]A [ Iota ] ]
+
+	DEFINE IOTA => [ RANGE 0 SUB1 ]
 
 	
-	DEFINE WATCH => [ FOREVER [ p CMDSTDOUTSTDERR F ; SLEEP N ] ARG F ARG N ]
+	DEFINE WATCH => [ FOREVER [ PRINTLN A[ CMDSTDOUTSTDERR F ]A SLEEP N ] ARG F => ARG N => ]
 	
 	DEFINE SUBSHELL => LAMBDA [
 	IF EQUAL OS windows [ 

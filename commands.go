@@ -1555,10 +1555,6 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "LASTFUNC", NewCode("LASTFUNC", -1, func(ne *Engine, c *Thingy) *Engine {
-		ne.dataStack = pushStack(ne.dataStack, ne.LastFunction)
-		return ne
-	}))
 	/*
 			e = add(e, "MAKEJIT", NewCode("MAKEJIT", -1, func(ne *Engine, c *Thingy) *Engine {
 				//var el, el_arr *Thingy

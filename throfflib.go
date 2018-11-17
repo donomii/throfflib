@@ -796,7 +796,6 @@ func buildFuncStepper(e *Engine, c *Thingy) *Engine {
 		//If it's not code, it's data, so it goes on the data stack
 		ne.dataStack = pushStack(ne.dataStack, c)
 	}
-	ne.LastFunction = c //We need a way for functions to get a reference to themselves, in a similar way that objects usually get a "self" or "this" variable
 	return ne
 }
 
