@@ -94,10 +94,10 @@ func LoadGraphics(e *Engine) *Engine{
 		el2, e.dataStack = popStack(e.dataStack)
 		el3, e.dataStack = popStack(e.dataStack)
 		el4, e.dataStack = popStack(e.dataStack)
-		x1, _ := strconv.ParseInt( el1.getString(), 10, 32 )
-		x2, _ := strconv.ParseInt( el2.getString(), 10, 32 )
-		x3, _ := strconv.ParseInt( el3.getString(), 10, 32 )
-		x4, _ := strconv.ParseInt( el4.getString(), 10, 32 )
+		x1, _ := strconv.ParseInt( el1.GetString(), 10, 32 )
+		x2, _ := strconv.ParseInt( el2.GetString(), 10, 32 )
+		x3, _ := strconv.ParseInt( el3.GetString(), 10, 32 )
+		x4, _ := strconv.ParseInt( el4.GetString(), 10, 32 )
 		col := color.RGBA{uint8(x1),uint8(x2),uint8(x3),uint8(x4)}
 		e.dataStack = append(e.dataStack, NewWrapper(col))
 		return e}))
@@ -110,15 +110,15 @@ func LoadGraphics(e *Engine) *Engine{
 		y, ne.dataStack = popStack(ne.dataStack)
 		title, ne.dataStack = popStack(ne.dataStack)
 
-		xx, _ := strconv.ParseInt( x.getString(), 10, 32 )
-		yy, _ := strconv.ParseInt( y.getString(), 10, 32 )
+		xx, _ := strconv.ParseInt( x.GetString(), 10, 32 )
+		yy, _ := strconv.ParseInt( y.GetString(), 10, 32 )
 
 
 		glfw.WindowHint(glfw.Resizable, glfw.False)
 		glfw.WindowHint(glfw.ContextVersionMajor, 2)
 		glfw.WindowHint(glfw.ContextVersionMinor, 1)
 
-		window, err := glfw.CreateWindow(int(xx), int(yy), title.getString(), nil, nil)
+		window, err := glfw.CreateWindow(int(xx), int(yy), title.GetString(), nil, nil)
 		if err != nil {
 			panic(err)
 		}

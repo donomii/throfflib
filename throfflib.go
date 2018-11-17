@@ -132,14 +132,14 @@ func (t *Thingy) getSource() string {
 }
 
 //Builds a string for display to the user.  Probably can't be used to re-create the original data structure
-func (t *Thingy) getString() string {
+func (t *Thingy) GetString() string {
 	if t.tiipe == "ARRAY" {
 		var accum string = ""
 		for i, el := range t._arrayVal {
 			if i == 0 {
-				accum = fmt.Sprintf("%v", el.getString())
+				accum = fmt.Sprintf("%v", el.GetString())
 			} else {
-				accum = fmt.Sprintf("%v %v", accum, el.getString())
+				accum = fmt.Sprintf("%v %v", accum, el.GetString())
 			}
 		}
 		return accum
@@ -149,9 +149,9 @@ func (t *Thingy) getString() string {
 		var accum string = ""
 		for i, el := range t._arrayVal {
 			if i == 0 {
-				accum = fmt.Sprintf("%v", el.getString())
+				accum = fmt.Sprintf("%v", el.GetString())
 			} else {
-				accum = fmt.Sprintf("%v %v", accum, el.getString())
+				accum = fmt.Sprintf("%v %v", accum, el.GetString())
 			}
 		}
 		return accum
@@ -160,7 +160,7 @@ func (t *Thingy) getString() string {
 	if t.tiipe == "HASH" {
 		var accum string = "{ "
 		for k, v := range t._hashVal {
-			accum = fmt.Sprintf("%s, %s -> %s", accum, k, v.getString())
+			accum = fmt.Sprintf("%s, %s -> %s", accum, k, v.GetString())
 		}
 		return fmt.Sprintf("%v }", accum)
 	}
@@ -500,16 +500,16 @@ func doStep(e *Engine) (*Engine, bool) {
 
 		//ne.environment = lex
 		if traceProg {
-			emit(fmt.Sprintf("%v:Step: %v(%v) - (%p) \n", v._line, v.getString(), v.tiipe, lex))
+			emit(fmt.Sprintf("%v:Step: %v(%v) - (%p) \n", v._line, v.GetString(), v.tiipe, lex))
 		}
 		//fmt.Printf("Calling: '%v'\n", v.getString())
 		if interpreter_debug {
-			emit(fmt.Sprintf("Choosing environment %p for command %v(%v)\n", ne.environment, v.getString(), ne.environment))
+			emit(fmt.Sprintf("Choosing environment %p for command %v(%v)\n", ne.environment, v.GetString(), ne.environment))
 		}
 
 		oldlen := len(ne.dataStack) //Note the size of the data stack
 		if interpreter_debug {
-			emit(fmt.Sprintf("Using environment: %p for command : %v\n", ne.environment, v.getString()))
+			emit(fmt.Sprintf("Using environment: %p for command : %v\n", ne.environment, v.GetString()))
 		}
 		ne = v._stub(ne, v)                           //Call the handler function for this instruction
 		newlen := len(ne.dataStack)                   //Note the new data stack size
@@ -606,6 +606,10 @@ func (e *Engine) LoadTokens(s stack) {
 	e.codeStack = append(e.codeStack, s...)
 }
 
+func (e *Engine) DataStackTop() *Thingy {
+	return e.dataStack[len(e.dataStack)-1]
+}
+
 // Function constructor - constructs new function for listing given directory
 func listFiles(path string) func(string) []string {
 	return func(line string) []string {
@@ -687,7 +691,7 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 		e.LoadTokens(tokenise(text, "repl"))
 		//stackDump(e.codeStack)
 		e, _ = run(e)
-		emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].getString()))
+		emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].GetString()))
 		realRepl(e, rl)
 		return e
 	} else {
@@ -713,6 +717,34 @@ func (e *Engine) RunString(s string, source string) *Engine {
 	e.LoadTokens(tokenise(s, source))
 	e, _ = run(e)
 	return e
+}
+
+func (e *Engine) Call(s string, args []string) (string, *Engine) {
+	e.LoadTokens(tokenise(s, "Call from go"))
+	for _, v := range args {
+		e.LoadTokens(tokenise(v, "Call args loader"))
+	}
+	e, _ = run(e)
+	return e.DataStackTop().GetString(), e
+}
+
+func (e *Engine) CallArgs(s string, args ...string) (string, *Engine) {
+	e.LoadTokens(tokenise(s, "CallArgs from go"))
+	for _, v := range args {
+		e.LoadTokens(tokenise(v, "CallArgs args loader"))
+	}
+	e, _ = run(e)
+	return e.DataStackTop().GetString(), e
+}
+
+func (e *Engine) CallArgs1(s string, args ...interface{}) (string, *Engine) {
+	e.LoadTokens(tokenise(s, "CallArgs from go"))
+	for _, v := range args {
+		str := fmt.Sprintf("%v", v)
+		e.LoadTokens(tokenise(str, "CallArgs args loader"))
+	}
+	e, _ = run(e)
+	return e.DataStackTop().GetString(), e
 }
 
 func (e *Engine) RunFile(s string) *Engine {

@@ -30,6 +30,16 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+func String2Big(in string, precision uint) *big.Float {
+	v1, _, _ := big.ParseFloat(in, 10, precision, big.ToZero)
+	if v1 == nil {
+		v1 = big.NewFloat(0)
+	}
+	v1 = v1.SetPrec(precision)
+	return v1
+
+}
+
 //import "golang.org/x/net/websocket"
 
 //Creates a new engine and populates it with the core functions
@@ -145,9 +155,9 @@ func MakeEngine() *Engine {
 		var el1 *Thingy
 
 		el1, ne.dataStack = popStack(ne.dataStack)
-		f, err := os.Open(el1.getString())
+		f, err := os.Open(el1.GetString())
 		if !(err == nil) {
-			return ne.RunString(fmt.Sprintf("THROW [ Could not open file %v: %v ] ", el1.getString(), err), "Internal Error")
+			return ne.RunString(fmt.Sprintf("THROW [ Could not open file %v: %v ] ", el1.GetString(), err), "Internal Error")
 		}
 
 		reader := bufio.NewReaderSize(f, 999999)
@@ -160,7 +170,7 @@ func MakeEngine() *Engine {
 		var el1 *Thingy
 
 		el1, ne.dataStack = popStack(ne.dataStack)
-		db, err := sql.Open("sqlite3", el1.getString())
+		db, err := sql.Open("sqlite3", el1.GetString())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -174,7 +184,7 @@ func MakeEngine() *Engine {
 		el1, ne.dataStack = popStack(ne.dataStack)
 		querystring, ne.dataStack = popStack(ne.dataStack)
 		db := el1._structVal.(*sql.DB)
-		str := querystring.getString()
+		str := querystring.GetString()
 
 		rows, err := db.Query(str)
 
@@ -193,10 +203,10 @@ func MakeEngine() *Engine {
 		db := el1._structVal.(*sql.DB)
 		stringArgs := []interface{}{}
 		for _, v := range wrappedArgs._arrayVal {
-			stringArgs = append(stringArgs, v.getString())
+			stringArgs = append(stringArgs, v.GetString())
 		}
 
-		_, err := db.Exec(querystring.getString(), stringArgs...)
+		_, err := db.Exec(querystring.GetString(), stringArgs...)
 
 		if err != nil {
 			emit(fmt.Sprintf("Error: exec failed: %v", err))
@@ -264,7 +274,7 @@ func MakeEngine() *Engine {
 		var el1 *Thingy
 
 		el1, ne.dataStack = popStack(ne.dataStack)
-		f, _ := os.OpenFile(el1.getString(), os.O_RDWR, 0644)
+		f, _ := os.OpenFile(el1.GetString(), os.O_RDWR, 0644)
 		//info, _ :=os.Lstat(el1.getString())
 		b, err := mmap.Map(f, mmap.RDWR, 0)
 		if err != nil {
@@ -283,7 +293,7 @@ func MakeEngine() *Engine {
 		el1, ne.dataStack = popStack(ne.dataStack)
 		env, ne.dataStack = popStack(ne.dataStack)
 		ne.environment = env
-		ne = ne.RunString(el1.getString(), "runstring")
+		ne = ne.RunString(el1.GetString(), "runstring")
 		return ne
 	}))
 
@@ -338,7 +348,7 @@ func MakeEngine() *Engine {
 	e = add(e, "EMIT", NewCode("EMIT", 1, func(ne *Engine, c *Thingy) *Engine {
 		var v *Thingy
 		v, ne.dataStack = popStack(ne.dataStack)
-		emit(fmt.Sprintf("%v", v.getString()))
+		emit(fmt.Sprintf("%v", v.GetString()))
 		return ne
 	}))
 
@@ -346,7 +356,7 @@ func MakeEngine() *Engine {
 		var v *Thingy
 		v, ne.dataStack = popStack(ne.dataStack)
 		//fmt.Printf("printing type: %v\n", v.tiipe)
-		emit(fmt.Sprintf("%v\n", v.getString()))
+		emit(fmt.Sprintf("%v\n", v.GetString()))
 		return ne
 	}))
 
@@ -369,7 +379,7 @@ func MakeEngine() *Engine {
 		var dir []os.FileInfo
 		var aDir *Thingy
 		aDir, ne.dataStack = popStack(ne.dataStack)
-		dir, _ = ioutil.ReadDir(aDir.getString())
+		dir, _ = ioutil.ReadDir(aDir.GetString())
 		var f stack
 		for _, el := range dir {
 			f = pushStack(f, NewString(el.Name(), e.environment))
@@ -384,8 +394,8 @@ func MakeEngine() *Engine {
 		aString, ne.dataStack = popStack(ne.dataStack)
 		aSeparator, ne.dataStack = popStack(ne.dataStack)
 		aCount, ne.dataStack = popStack(ne.dataStack)
-		n, _ := strconv.ParseInt(aCount.getString(), 10, 32)
-		bits := strings.SplitN(aString.getString(), aSeparator.getString(), int(n))
+		n, _ := strconv.ParseInt(aCount.GetString(), 10, 32)
+		bits := strings.SplitN(aString.GetString(), aSeparator.GetString(), int(n))
 		var f stack
 		for _, el := range bits {
 			f = pushStack(f, NewString(el, e.environment))
@@ -413,20 +423,20 @@ func MakeEngine() *Engine {
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		env := ne.environment
 		if interpreter_debug {
-			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString()))
+			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.GetString(), aName.GetString()))
 		}
 
-		prev, ok := env._hashVal[aName.getString()]
+		prev, ok := env._hashVal[aName.GetString()]
 		if ok {
 			if e._safeMode {
-				emit(fmt.Sprintf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.getString(), aName._filename, aName._line, prev.getString()))
+				emit(fmt.Sprintf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.GetString(), aName._filename, aName._line, prev.GetString()))
 				os.Exit(1)
 			}
 		}
-		env._hashVal[aName.getString()] = aVal
-		checkVal, checkOk := env._hashVal[aName.getString()]
+		env._hashVal[aName.GetString()] = aVal
+		checkVal, checkOk := env._hashVal[aName.GetString()]
 		if interpreter_debug {
-			emit(fmt.Sprintf("Checked var %v, value is %v, in environment %p - %v\n", aName.getString(), checkVal, env, env))
+			emit(fmt.Sprintf("Checked var %v, value is %v, in environment %p - %v\n", aName.GetString(), checkVal, env, env))
 		}
 		if !checkOk {
 			panic("bind name failed!")
@@ -456,18 +466,18 @@ func MakeEngine() *Engine {
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		env := aName.environment
 		if interpreter_debug {
-			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.getString(), aName.getString()))
+			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.GetString(), aName.GetString()))
 		}
 
-		_, ok := env._hashVal[aName.getString()]
+		_, ok := env._hashVal[aName.GetString()]
 		if !ok {
 			if e._safeMode {
-				emit(fmt.Sprintf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.getString(), aName._line))
+				emit(fmt.Sprintf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.GetString(), aName._line))
 				os.Exit(1)
 			}
 		}
-		env._hashVal[aName.getString()] = aVal
-		_, ok = env._hashVal[aName.getString()]
+		env._hashVal[aName.GetString()] = aVal
+		_, ok = env._hashVal[aName.GetString()]
 		if !ok {
 			panic("key not found")
 		}
@@ -479,7 +489,7 @@ func MakeEngine() *Engine {
 		var aName, aVal *Thingy
 		aName, ne.dataStack = popStack(ne.dataStack)
 		if interpreter_debug {
-			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", aName.environment, aVal.getString(), aName.getString()))
+			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", aName.environment, aVal.GetString(), aName.GetString()))
 		}
 		ne.dataStack = pushStack(ne.dataStack, ne.environment)
 
@@ -531,8 +541,8 @@ func MakeEngine() *Engine {
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		env := ne.environment
 		//fmt.Printf("Storing %v in %v\n", aVal._source, aName._source)
-		env._hashVal[aName.getString()] = aVal
-		_, ok := env._hashVal[aName.getString()]
+		env._hashVal[aName.GetString()] = aVal
+		_, ok := env._hashVal[aName.GetString()]
 		if !ok {
 			panic("key not found in environment after set")
 		}
@@ -545,10 +555,10 @@ func MakeEngine() *Engine {
 		aName, ne.dataStack = popStack(ne.dataStack)
 		env := ne.environment
 		if interpreter_debug {
-			emit(fmt.Sprintf("Scrubbing %v from %v\n", aName.getString(), env))
+			emit(fmt.Sprintf("Scrubbing %v from %v\n", aName.GetString(), env))
 		}
-		delete(env._hashVal, aName.getString())
-		_, ok := env._hashVal[aName.getString()]
+		delete(env._hashVal, aName.GetString())
+		_, ok := env._hashVal[aName.GetString()]
 		if ok {
 			panic("key found in environment after set")
 		}
@@ -561,12 +571,12 @@ func MakeEngine() *Engine {
 		aName, ne.dataStack = popStack(ne.dataStack)
 		//fmt.Printf("Fetching %v\n", aName.getString())
 
-		aVal, ok := ne.environment._hashVal[aName.getString()]
+		aVal, ok := ne.environment._hashVal[aName.GetString()]
 		if !ok {
 			for k, v := range ne.environment._hashVal {
 				emit(fmt.Sprintf("%v: %v\n", k, v))
 			}
-			emit(fmt.Sprintln("key not found ", aName.getString()))
+			emit(fmt.Sprintln("key not found ", aName.GetString()))
 			panic("Key not found error")
 		}
 
@@ -579,7 +589,7 @@ func MakeEngine() *Engine {
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		bVal, ne.dataStack = popStack(ne.dataStack)
 
-		if aVal.getString() == bVal.getString() {
+		if aVal.GetString() == bVal.GetString() {
 			ne.dataStack = pushStack(ne.dataStack, NewBool(1))
 		} else {
 			ne.dataStack = pushStack(ne.dataStack, NewBool(0))
@@ -626,9 +636,10 @@ func MakeEngine() *Engine {
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		bVal, ne.dataStack = popStack(ne.dataStack)
 
-		var a, _ = strconv.ParseFloat(aVal.getSource(), 32)
-		var b, _ = strconv.ParseFloat(bVal.getSource(), 32)
-		if a < b {
+		var a = String2Big(aVal.getSource(), precision)
+		var b = String2Big(bVal.getSource(), precision)
+		cmp := a.Cmp(b)
+		if cmp == -1 { // -1 means a < b
 			ne.dataStack = pushStack(ne.dataStack, NewBool(1))
 		} else {
 			ne.dataStack = pushStack(ne.dataStack, NewBool(0))
@@ -676,18 +687,18 @@ func MakeEngine() *Engine {
 		t, ne.dataStack = popStack(ne.dataStack)
 		el, ne.dataStack = popStack(ne.dataStack)
 
-		targetType := t.getString()
+		targetType := t.GetString()
 		el = clone(el)
 		if targetType == "STRING" && (el.tiipe == "CODE" || el.tiipe == "LAMBDA") {
-			el._stringVal = el.getString() //Calculate the string representation of the array before we change the type
+			el._stringVal = el.GetString() //Calculate the string representation of the array before we change the type
 			el._source = el.getSource()    //Calculate the string representation of the array before we change the type
 		}
 		if targetType == "STRING" && (el.tiipe == "BOOLEAN") {
-			el._stringVal = el.getString() //Calculate the string representation of the array before we change the type
+			el._stringVal = el.GetString() //Calculate the string representation of the array before we change the type
 			el._source = el.getSource()    //Calculate the string representation of the array before we change the type
 		}
 		if targetType == "STRING" && (el.tiipe == "ARRAY") {
-			el._stringVal = el.getString() //Calculate the string representation of the array before we change the type
+			el._stringVal = el.GetString() //Calculate the string representation of the array before we change the type
 			el._source = el.getSource()    //Calculate the string representation of the array before we change the type
 		}
 		if targetType == "CODE" && (el.tiipe == "CODE" || el.tiipe == "LAMBDA") {
@@ -702,7 +713,7 @@ func MakeEngine() *Engine {
 		var t, el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 
-		t = NewBytes([]byte(el.getString()), el.environment)
+		t = NewBytes([]byte(el.GetString()), el.environment)
 
 		ne.dataStack = pushStack(ne.dataStack, t)
 		return ne
@@ -826,7 +837,7 @@ func MakeEngine() *Engine {
 		el, ne.dataStack = popStack(ne.dataStack)
 		arr, ne.dataStack = popStack(ne.dataStack)
 		var n, _ = strconv.ParseInt(el.getSource(), 10, 32)
-		s := arr.getString()
+		s := arr.GetString()
 		var s1 string
 		for index, r := range s {
 			if index == int(n) {
@@ -884,7 +895,7 @@ func MakeEngine() *Engine {
 		var s1, s2 *Thingy
 		s1, ne.dataStack = popStack(ne.dataStack)
 		s2, ne.dataStack = popStack(ne.dataStack)
-		s3 := NewString(fmt.Sprintf("%s%s", s1.getString(), s2.getString()), ne.environment)
+		s3 := NewString(fmt.Sprintf("%s%s", s1.GetString(), s2.GetString()), ne.environment)
 
 		ne.dataStack = pushStack(ne.dataStack, s3)
 		return ne
@@ -905,10 +916,10 @@ func MakeEngine() *Engine {
 		el1, ne.dataStack = popStack(ne.dataStack)
 		var v1, v2 *big.Float
 		var v3 big.Float
-		v1, _, _ = big.ParseFloat(el.getSource(), 10, precision, big.ToZero)
-		v1 = v1.SetPrec(precision)
-		v2, _, _ = big.ParseFloat(el1.getSource(), 10, precision, big.ToZero)
-		v2 = v2.SetPrec(precision)
+		//var err error
+		v1 = String2Big(el.getSource(), precision)
+		v2 = String2Big(el1.getSource(), precision)
+
 		v3.SetPrec(0)
 		v3 = *v3.Add(v1, v2)
 
@@ -921,9 +932,10 @@ func MakeEngine() *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 
-		var v1, _ = strconv.ParseFloat(el.getSource(), 32)
+		var v1 = String2Big(el.getSource(), precision)
 
-		var t *Thingy = NewString(fmt.Sprintf("%v", math.Floor(v1)), e.environment)
+		v2, _ := v1.Int(nil)
+		var t *Thingy = NewString(fmt.Sprintf("%v", v2), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t)
 		return ne
 	}))
@@ -935,7 +947,7 @@ func MakeEngine() *Engine {
 		hash, ne.dataStack = popStack(ne.dataStack)
 		newhash = clone(hash)
 		newhash._hashVal = cloneMap(hash._hashVal)
-		newhash._hashVal[key.getString()] = val
+		newhash._hashVal[key.GetString()] = val
 		ne.dataStack = pushStack(ne.dataStack, newhash)
 		return ne
 	}))
@@ -944,10 +956,10 @@ func MakeEngine() *Engine {
 		var key, val, hash *Thingy
 		key, ne.dataStack = popStack(ne.dataStack)
 		hash, ne.dataStack = popStack(ne.dataStack)
-		val = hash._hashVal[key.getString()]
+		val = hash._hashVal[key.GetString()]
 		if val == nil {
-			emit(fmt.Sprintf("Warning: %v not found in hash%v\n\nCreating empty value\n", key.getString(), hash._hashVal))
-			val = NewString(fmt.Sprintf("UNDEFINED:%v", key.getString()), ne.environment)
+			emit(fmt.Sprintf("Warning: %v not found in hash%v\n\nCreating empty value\n", key.GetString(), hash._hashVal))
+			val = NewString(fmt.Sprintf("UNDEFINED:%v", key.GetString()), ne.environment)
 		}
 		ne.dataStack = pushStack(ne.dataStack, val)
 		return ne
@@ -963,9 +975,9 @@ func MakeEngine() *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		var v1, _ = strconv.ParseFloat(el.getSource(), 64)
-		var v2, _ = strconv.ParseFloat(el1.getSource(), 64)
-		var t *Thingy = NewString(fmt.Sprintf("%v", v1-v2), e.environment)
+		var v1 = String2Big(el.getSource(), precision)
+		var v2 = String2Big(el1.getSource(), precision)
+		var t *Thingy = NewString(fmt.Sprintf("%v", v1.Sub(v1, v2)), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t)
 		return ne
 	}))
@@ -974,20 +986,38 @@ func MakeEngine() *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		var v1, _ = strconv.ParseFloat(el.getSource(), 32)
-		var v2, _ = strconv.ParseFloat(el1.getSource(), 32)
-		var t *Thingy = NewString(fmt.Sprintf("%v", v1*v2), e.environment)
+		v1 := String2Big(el.getSource(), precision)
+		v2 := String2Big(el1.getSource(), precision)
+		var t *Thingy = NewString(fmt.Sprintf("%v", v1.Mul(v1, v2)), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t)
 		return ne
 	}))
 
-	e = add(e, "MODULO", NewCode("MODULO", 1, func(ne *Engine, c *Thingy) *Engine {
+	e = add(e, "MODULUS", NewCode("MODULUS", 1, func(ne *Engine, c *Thingy) *Engine {
 		var el, el1 *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		el1, ne.dataStack = popStack(ne.dataStack)
-		var v1, _ = strconv.ParseFloat(el.getSource(), 32)
-		var v2, _ = strconv.ParseFloat(el1.getSource(), 32)
+		v1B := String2Big(el.getSource(), precision)
+		v2B := String2Big(el1.getSource(), precision)
+
+		v1, _ := v1B.Float64()
+		v2, _ := v2B.Float64()
 		var t *Thingy = NewString(fmt.Sprintf("%v", math.Mod(v1, v2)), el.environment)
+		ne.dataStack = pushStack(ne.dataStack, t)
+		return ne
+	}))
+
+	e = add(e, "MODULUSI", NewCode("MODULUS", 1, func(ne *Engine, c *Thingy) *Engine {
+		var el, el1 *Thingy
+		var ShutTheFuckUpAndDoTheCalculation *big.Int
+		el, ne.dataStack = popStack(ne.dataStack)
+		el1, ne.dataStack = popStack(ne.dataStack)
+		v1 := String2Big(el.getSource(), precision)
+		v2 := String2Big(el1.getSource(), precision)
+		v1I, _ := v1.Int(ShutTheFuckUpAndDoTheCalculation)
+		v2I, _ := v2.Int(ShutTheFuckUpAndDoTheCalculation)
+		m := v1I.Mod(v1I, v2I)
+		var t *Thingy = NewString(fmt.Sprintf("%v", m), el.environment)
 		ne.dataStack = pushStack(ne.dataStack, t)
 		return ne
 	}))
@@ -995,7 +1025,8 @@ func MakeEngine() *Engine {
 	e = add(e, "LN", NewCode("LN", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		var v1, _ = strconv.ParseFloat(el.getSource(), 32)
+		v1B := String2Big(el.getSource(), 32)
+		v1, _ := v1B.Float64()
 		var t *Thingy = NewString(fmt.Sprintf("%v", math.Log2(v1)), e.environment)
 		ne.dataStack = pushStack(ne.dataStack, t)
 		return ne
@@ -1007,10 +1038,8 @@ func MakeEngine() *Engine {
 		el1, ne.dataStack = popStack(ne.dataStack)
 		var v1, v2 *big.Float
 		var v3 big.Float
-		v1, _, _ = big.ParseFloat(el.getSource(), 10, precision, big.ToZero)
-		v1 = v1.SetPrec(precision)
-		v2, _, _ = big.ParseFloat(el1.getSource(), 10, precision, big.ToZero)
-		v2 = v2.SetPrec(precision)
+		v1 = String2Big(el.getSource(), precision)
+		v2 = String2Big(el1.getSource(), precision)
 		v3.SetPrec(0)
 		v3 = *v3.Quo(v1, v2)
 		var t *Thingy = NewString(fmt.Sprintf("%v", v3.Text('g', int(precision))), e.environment)
@@ -1057,7 +1086,7 @@ func MakeEngine() *Engine {
 		server, ne.dataStack = popStack(ne.dataStack)
 		port, ne.dataStack = popStack(ne.dataStack)
 		// Listen on TCP port 2000 on all interfaces.
-		l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", server.getString(), port.getString()))
+		l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", server.GetString(), port.GetString()))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -1087,7 +1116,7 @@ func MakeEngine() *Engine {
 		var server, port *Thingy
 		server, ne.dataStack = popStack(ne.dataStack)
 		port, ne.dataStack = popStack(ne.dataStack)
-		conn, err := net.Dial("tcp", fmt.Sprintf("%v:%v", server.getString(), port.getString()))
+		conn, err := net.Dial("tcp", fmt.Sprintf("%v:%v", server.GetString(), port.GetString()))
 		emit(fmt.Sprintf("%v", err))
 		t := NewWrapper(conn)
 		ne.dataStack = pushStack(ne.dataStack, t)
@@ -1098,7 +1127,7 @@ func MakeEngine() *Engine {
 		var message, conn *Thingy
 		message, ne.dataStack = popStack(ne.dataStack)
 		conn, ne.dataStack = popStack(ne.dataStack)
-		fmt.Fprintf(conn._structVal.(io.Writer), message.getString())
+		fmt.Fprintf(conn._structVal.(io.Writer), message.GetString())
 		return ne
 	}))
 
@@ -1118,7 +1147,7 @@ func MakeEngine() *Engine {
 		path, ne.dataStack = popStack(ne.dataStack)
 		callback, ne.dataStack = popStack(ne.dataStack)
 
-		http.HandleFunc(path.getString(), func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc(path.GetString(), func(w http.ResponseWriter, r *http.Request) {
 			r.ParseForm()
 			var code = r.Form["code"]
 			var en = MakeEngine()
@@ -1129,7 +1158,7 @@ func MakeEngine() *Engine {
 			en.lexStack = pushStack(en.lexStack, ne.environment)
 			en = en.Run()
 			var ret, _ = popStack(en.dataStack)
-			fmt.Fprintf(w, "Hello, %q, %q, %v", callback.getString(), html.EscapeString(r.URL.Path), ret.getString())
+			fmt.Fprintf(w, "Hello, %q, %q, %v", callback.GetString(), html.EscapeString(r.URL.Path), ret.GetString())
 		})
 		cwd, _ := os.Getwd()
 		emit(fmt.Sprintf("Serving /resources/ from:%s\n", cwd))
@@ -1195,7 +1224,7 @@ func MakeEngine() *Engine {
 				re = ne
 			}
 		}()
-		res, err := http.Get(path.getString())
+		res, err := http.Get(path.GetString())
 		if err != nil {
 			log.Println(err)
 		}
@@ -1238,7 +1267,7 @@ func MakeEngine() *Engine {
 			val = len(el._arrayVal)
 		}
 		if el.tiipe == "STRING" {
-			val = len(el.getString())
+			val = len(el.GetString())
 		}
 		if el.tiipe == "BYTES" {
 			val = len(el._bytesVal)
@@ -1253,7 +1282,7 @@ func MakeEngine() *Engine {
 		el, ne.dataStack = popStack(ne.dataStack)
 		var args []string
 		for _, s := range el._arrayVal {
-			args = append(args, s.getString())
+			args = append(args, s.GetString())
 		}
 		//This is lunacy
 		command := args[0]
@@ -1305,7 +1334,7 @@ func MakeEngine() *Engine {
 	e = add(e, "DNS.CNAME", NewCode("DNS.CNAME", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		r, _ := net.LookupCNAME(el.getString())
+		r, _ := net.LookupCNAME(el.GetString())
 		ne.dataStack = pushStack(ne.dataStack, NewString(string(r), nil))
 		return ne
 	}))
@@ -1313,7 +1342,7 @@ func MakeEngine() *Engine {
 	e = add(e, "DNS.HOST", NewCode("DNS.HOST", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		r, _ := net.LookupHost(el.getString())
+		r, _ := net.LookupHost(el.GetString())
 		a := fmt.Sprintf("->ARRAY [ %v  ]", strings.Join(r, " "))
 		ne = ne.RunString(a, "DNS.HOST")
 		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
@@ -1323,7 +1352,7 @@ func MakeEngine() *Engine {
 	e = add(e, "DNS.TXT", NewCode("DNS.TXT", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		r, _ := net.LookupTXT(el.getString())
+		r, _ := net.LookupTXT(el.GetString())
 		a := fmt.Sprintf("->ARRAY [ %v  ]", strings.Join(r, " "))
 		ne = ne.RunString(a, "DNS.TXT")
 		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
@@ -1333,7 +1362,7 @@ func MakeEngine() *Engine {
 	e = add(e, "DNS.REVERSE", NewCode("DNS.REVERSE", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
-		r, _ := net.LookupAddr(el.getString())
+		r, _ := net.LookupAddr(el.GetString())
 		a := fmt.Sprintf("->ARRAY [ %v  ]", strings.Join(r, " "))
 		ne = ne.RunString(a, "DNS.REVERSE")
 		//ne.dataStack = pushStack(ne.dataStack, NewString(string(a), nil))
@@ -1408,7 +1437,7 @@ func MakeEngine() *Engine {
 
 		var argv = []string{}
 		for _, v := range el_arr._arrayVal {
-			argv = append(argv, v.getString())
+			argv = append(argv, v.GetString())
 		}
 
 		cmd := exec.Command(argv[0], argv[1:]...)
@@ -1425,16 +1454,16 @@ func MakeEngine() *Engine {
 		el, ne.dataStack = popStack(ne.dataStack)
 		el_arr, ne.dataStack = popStack(ne.dataStack)
 
-		var argv = []string{el.getString()}
+		var argv = []string{el.GetString()}
 		//fmt.Printf("$V", el_arr._arrayVal)
 		for _, v := range el_arr._arrayVal {
-			argv = append(argv, v.getString())
+			argv = append(argv, v.GetString())
 		}
 		//fmt.Printf("$V", argv)
 		attr := os.ProcAttr{
 			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 		}
-		proc, err := os.StartProcess(el.getString(), argv, &attr)
+		proc, err := os.StartProcess(el.GetString(), argv, &attr)
 		running := NewWrapper(proc)
 
 		var ret *Thingy
@@ -1517,7 +1546,8 @@ func MakeEngine() *Engine {
 	e = add(e, "SIN", NewCode("SIN", 0, func(ne *Engine, c *Thingy) *Engine {
 		var arg *Thingy
 		arg, ne.dataStack = popStack(ne.dataStack)
-		var in, _ = strconv.ParseFloat(arg.getSource(), 32)
+		flin := String2Big(arg.getSource(), precision)
+		in, _ := flin.Float64()
 		var ret = math.Sin(in)
 		ne.dataStack = pushStack(ne.dataStack, NewString(fmt.Sprintf("%v", ret), ne.environment))
 		return ne

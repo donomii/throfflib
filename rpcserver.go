@@ -30,7 +30,7 @@ func (t *TagResponder) Eval(args *Args, reply *StatusReply) error {
 	rethash["retval"] = ret.getSource()
 	//fmt.Printf("return hash: %v\n", ret)
 	for k, v := range ret._hashVal {
-		rethash[k] = v.getString()
+		rethash[k] = v.GetString()
 	}
 
 	reply.Answer = rethash
