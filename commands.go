@@ -405,7 +405,7 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "SAFETYON", NewCode("SAFETYON", 2, func(ne *Engine, c *Thingy) *Engine {
+	e = add(e, "SAFETYON", NewCode("SAFETYON", 0, func(ne *Engine, c *Thingy) *Engine {
 		ne._safeMode = true
 		return ne
 	}))
@@ -743,8 +743,10 @@ func MakeEngine() *Engine {
 		return e
 	}))
 
-	e = add(e, ".E", NewCode(".S", 0, func(e *Engine, c *Thingy) *Engine {
+	e = add(e, ".E", NewCode(".E", 0, func(e *Engine, c *Thingy) *Engine {
+		fmt.Println("Engine environment")
 		dumpEnv(e.environment)
+		fmt.Println("Thingy environment")
 		dumpEnv(c.environment)
 		return e
 	}))
@@ -1550,6 +1552,11 @@ func MakeEngine() *Engine {
 		in, _ := flin.Float64()
 		var ret = math.Sin(in)
 		ne.dataStack = pushStack(ne.dataStack, NewString(fmt.Sprintf("%v", ret), ne.environment))
+		return ne
+	}))
+
+	e = add(e, "LASTFUNC", NewCode("LASTFUNC", -1, func(ne *Engine, c *Thingy) *Engine {
+		ne.dataStack = pushStack(ne.dataStack, ne.LastFunction)
 		return ne
 	}))
 	/*
