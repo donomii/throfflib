@@ -6,6 +6,11 @@ func BootStrapString() string {
 	str = `
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
 
+	NAMETESTBLOCK [ Reverse ] [
+		TEST  REVERSE A[ Monday Tuesday Wednesday Thursday Friday ]A A[ Friday Thursday Wednesday Tuesday Monday ]A [ Reverse Array ] ]
+
+DEFINE REVERSE => [ FOLD [ UNSHIFTARRAY ] A[ ]A ]
+
 DEFINE SWATCH => [ 
 CALL/SELF [
 	RECURSE SELF f delay
@@ -630,19 +635,12 @@ TESTBLOCK [
 ]
 
 DEFINE BUBBLESORT => [
-
-	IF CHANGED [
-		BUBBLESORT NEWARR
-		]
-		[
-			returns NEWARR
-		]
-
+	IF CHANGED 
+		[ BUBBLESORT NEWARR ]
+		[ returns NEWARR ]
 
 	ARG NEWARR =>
 	ARG CHANGED => BUBBLESTEP ARR
-
-
 
 	ARG ARR =>
 ]

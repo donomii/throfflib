@@ -726,13 +726,21 @@ func (e *Engine) RunString(s string, source string) *Engine {
 	return e
 }
 
-func (e *Engine) Call(s string, args []string) (string, *Engine) {
+func (e *Engine) CallArray(s string, args []string) ([]string, *Engine) {
 	e.LoadTokens(tokenise(s, "Call from go"))
+	tarray := []*Thingy{}
 	for _, v := range args {
-		e.LoadTokens(tokenise(v, "Call args loader"))
+		tarray = append(tarray, tokenise(v, "Call args loader")...)
 	}
+	t := NewArray(tarray)
+	e.dataStack = append(e.dataStack, t)
 	e, _ = run(e)
-	return e.DataStackTop().GetString(), e
+	var out []string
+	throffArr := e.DataStackTop()
+	for _, v := range throffArr._arrayVal {
+		out = append(out, v.GetString())
+	}
+	return out, e
 }
 
 func (e *Engine) CallArgs(s string, args ...string) (string, *Engine) {

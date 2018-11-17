@@ -19,9 +19,11 @@ import "strconv"
 import "math"
 import "runtime"
 import "github.com/edsrzf/mmap-go"
-import "net/http"
+
+//import "net/http"
 import "net"
-import "html"
+
+//import "html"
 import "log"
 import "io"
 import "database/sql"
@@ -1078,11 +1080,6 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "RPCSERVER", NewCode("RPCSERVER", 0, func(ne *Engine, c *Thingy) *Engine {
-		rpc_server("127.0.0.1:80")
-		return ne
-	}))
-
 	e = add(e, "TCPSERVER", NewCode("TCPSERVER", 1, func(ne *Engine, c *Thingy) *Engine {
 		var server, port *Thingy
 		server, ne.dataStack = popStack(ne.dataStack)
@@ -1143,104 +1140,32 @@ func MakeEngine() *Engine {
 		ne.dataStack = pushStack(ne.dataStack, ret)
 		return ne
 	}))
-
-	e = add(e, "HTTPSERVER", NewCode("HTTPSERVER", 0, func(ne *Engine, c *Thingy) *Engine {
-		var path, callback *Thingy
-		path, ne.dataStack = popStack(ne.dataStack)
-		callback, ne.dataStack = popStack(ne.dataStack)
-
-		http.HandleFunc(path.GetString(), func(w http.ResponseWriter, r *http.Request) {
-			r.ParseForm()
-			var code = r.Form["code"]
-			var en = MakeEngine()
-			en = en.RunFile("bootstrap.lib")
-			emit(fmt.Sprintf("code: %v\n", strings.Join(code, "")))
-			en.dataStack = pushStack(en.dataStack, NewString(strings.Join(code, ""), en.environment))
-			en.codeStack = pushStack(en.codeStack, callback)
-			en.lexStack = pushStack(en.lexStack, ne.environment)
-			en = en.Run()
-			var ret, _ = popStack(en.dataStack)
-			fmt.Fprintf(w, "Hello, %q, %q, %v", callback.GetString(), html.EscapeString(r.URL.Path), ret.GetString())
-		})
-		cwd, _ := os.Getwd()
-		emit(fmt.Sprintf("Serving /resources/ from:%s\n", cwd))
-		http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir(cwd))))
-		http.ListenAndServe(":80", nil)
-		return ne
-	}))
 	/*
-		e = add(e, "WEBSOCKETCLIENT", NewCode("WEBSOCKETCLIENT", 0, func(ne *Engine, c *Thingy) *Engine {
-			var url, protocol, origin *Thingy
-			var q1, q2 *Thingy
-			url, ne.dataStack = popStack(ne.dataStack)
-			protocol, ne.dataStack = popStack(ne.dataStack)
-			origin, ne.dataStack = popStack(ne.dataStack)
-			q1, ne.dataStack = popStack(ne.dataStack)
-			q2, ne.dataStack = popStack(ne.dataStack)
-
-			wqueue := q1._structVal.(chan *Thingy)
-			rqueue := q2._structVal.(chan *Thingy)
-
-			ws, err := websocket.Dial(url.getString(), protocol.getString(), origin.getString())
+		e = add(e, "GETWWW", NewCode("GETWWW", 0, func(ne *Engine, c *Thingy) (re *Engine) {
+			var path *Thingy
+			path, ne.dataStack = popStack(ne.dataStack)
+			defer func() {
+				if r := recover(); r != nil {
+					emit(fmt.Sprintln("Failed to retrieve ", path.getSource(), " because ", r))
+					ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
+					re = ne
+				}
+			}()
+			res, err := http.Get(path.GetString())
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-			go func() {
-				for {
-					var msg = make([]byte, 512)
-					var n int
-					if n, err = ws.Read(msg); err != nil {
-						log.Fatal(err)
-					}
-					//fmt.Printf("Received: %s.\n", msg[:n])
-					rqueue <- NewBytes(msg[:n], ne.environment)
-				}
-			}()
+			robots, err := ioutil.ReadAll(res.Body)
+			res.Body.Close()
+			if err != nil {
+				log.Println(err)
+			}
 
-			go func() {
-				for {
-					msg := <-wqueue
-					emit(fmt.Sprintf("Sending %v\n", msg.getString()))
-					if _, err := ws.Write([]byte(msg.getString())); err != nil {
-						log.Fatal(err)
-					}
-				}
-			}()
+			ne.dataStack = pushStack(ne.dataStack, NewString(string(robots), ne.environment))
 
-			ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
 			return ne
 		}))
 	*/
-	e = add(e, "RPCSERVER", NewCode("RPCSERVER", 0, func(ne *Engine, c *Thingy) *Engine {
-		rpc_server("127.0.0.1:80")
-		return ne
-	}))
-
-	e = add(e, "GETWWW", NewCode("GETWWW", 0, func(ne *Engine, c *Thingy) (re *Engine) {
-		var path *Thingy
-		path, ne.dataStack = popStack(ne.dataStack)
-		defer func() {
-			if r := recover(); r != nil {
-				emit(fmt.Sprintln("Failed to retrieve ", path.getSource(), " because ", r))
-				ne.dataStack = pushStack(ne.dataStack, NewString("", e.environment))
-				re = ne
-			}
-		}()
-		res, err := http.Get(path.GetString())
-		if err != nil {
-			log.Println(err)
-		}
-		robots, err := ioutil.ReadAll(res.Body)
-		res.Body.Close()
-		if err != nil {
-			log.Println(err)
-		}
-
-		ne.dataStack = pushStack(ne.dataStack, NewString(string(robots), ne.environment))
-
-		return ne
-	}))
-
 	e = add(e, "EXIT", NewCode("EXIT", 0, func(ne *Engine, c *Thingy) *Engine {
 		/*for f, m := range ne._heatMap {
 			emit(fmt.Sprintln("Hotspots in file ", f))
