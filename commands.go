@@ -1178,7 +1178,7 @@ func MakeEngine() *Engine {
 		return e
 	}))
 
-	e = add(e, "EXITw/CODE", NewCode("EXITw/CODE", 0, func(ne *Engine, c *Thingy) *Engine {
+	e = add(e, "EXIT/CODE", NewCode("EXIT/CODE", 0, func(ne *Engine, c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, ne.dataStack = popStack(ne.dataStack)
 		var n, _ = strconv.ParseInt(el1.getSource(), 10, 32)
