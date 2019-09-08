@@ -7,3 +7,8 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y libxrandr-dev libxinerama-dev  libxinerama1 libx11-dev libxcursor-dev libxi-dev xorg-dev
   - git clone https://github.com/glfw/glfw && mkdir build && cd build && cmake ../glfw && make -j4 && sudo make install
+install:
+  - go get github.com/donomii/throff
+  - go build github.com/donomii/throff
+script:
+  - ./throff -f treewalk.thr
