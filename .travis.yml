@@ -11,4 +11,4 @@ install:
   - go get github.com/donomii/throff
   - go build github.com/donomii/throff
 script:
-  - ./throff -f treewalk.thr
+  - cd .. && ./throff -f treewalk.thr
