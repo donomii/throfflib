@@ -9,6 +9,6 @@ before_install:
   - git clone https://github.com/glfw/glfw && mkdir build && cd build && cmake ../glfw && make -j4 && sudo make install
 install:
   - go get github.com/donomii/throff
-  - go build github.com/donomii/throff
+  - cd .. && go build github.com/donomii/throff
 script:
-  - cd .. && ./throff -f treewalk.thr
+  -  ./throff -f treewalk.thr
