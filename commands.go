@@ -428,21 +428,19 @@ func MakeEngine() *Engine {
 			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.GetString(), aName.GetString()))
 		}
 
-		prev, ok := env._hashVal[aName.GetString()]
-		if ok {
+		prev := ll_find(env._llVal, aName.GetString())
+		if prev == nil {
 			if e._safeMode {
 				emit(fmt.Sprintf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.GetString(), aName._filename, aName._line, prev.GetString()))
 				os.Exit(1)
 			}
 		}
-		env._hashVal[aName.GetString()] = aVal
-		checkVal, checkOk := env._hashVal[aName.GetString()]
+		env._llVal = ll_add(env._llVal, aName.GetString(), aVal)
+		checkVal := ll_find(env._llVal, aName.GetString())
 		if interpreter_debug {
 			emit(fmt.Sprintf("Checked var %v, value is %v, in environment %p - %v\n", aName.GetString(), checkVal, env, env))
 		}
-		if !checkOk {
-			panic("bind name failed!")
-		}
+
 		if !(checkVal == aVal) {
 			panic("bind name failed!")
 		}
@@ -471,16 +469,16 @@ func MakeEngine() *Engine {
 			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", env, aVal.GetString(), aName.GetString()))
 		}
 
-		_, ok := env._hashVal[aName.GetString()]
-		if !ok {
+		val := ll_find(env._llVal, aName.GetString())
+		if val == nil {
 			if e._safeMode {
 				emit(fmt.Sprintf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.GetString(), aName._line))
 				os.Exit(1)
 			}
 		}
-		env._hashVal[aName.GetString()] = aVal
-		_, ok = env._hashVal[aName.GetString()]
-		if !ok {
+		env._llVal = ll_add(env._llVal, aName.GetString(), aVal)
+		val = ll_find(env._llVal, aName.GetString())
+		if val == nil {
 			panic("key not found")
 		}
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
@@ -543,26 +541,10 @@ func MakeEngine() *Engine {
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		env := ne.environment
 		//fmt.Printf("Storing %v in %v\n", aVal._source, aName._source)
-		env._hashVal[aName.GetString()] = aVal
-		_, ok := env._hashVal[aName.GetString()]
-		if !ok {
+		env._llVal = ll_add(env._llVal, aName._stringVal, aVal)
+		val := ll_find(env._llVal, aName.GetString())
+		if val == nil {
 			panic("key not found in environment after set")
-		}
-		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
-		return ne
-	}))
-
-	e = add(e, "SCRUBLEX", NewCode("SCRUBLEX", 1, func(ne *Engine, c *Thingy) *Engine {
-		var aName *Thingy
-		aName, ne.dataStack = popStack(ne.dataStack)
-		env := ne.environment
-		if interpreter_debug {
-			emit(fmt.Sprintf("Scrubbing %v from %v\n", aName.GetString(), env))
-		}
-		delete(env._hashVal, aName.GetString())
-		_, ok := env._hashVal[aName.GetString()]
-		if ok {
-			panic("key found in environment after set")
 		}
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
 		return ne
@@ -573,11 +555,10 @@ func MakeEngine() *Engine {
 		aName, ne.dataStack = popStack(ne.dataStack)
 		//fmt.Printf("Fetching %v\n", aName.getString())
 
-		aVal, ok := ne.environment._hashVal[aName.GetString()]
-		if !ok {
-			for k, v := range ne.environment._hashVal {
-				emit(fmt.Sprintf("%v: %v\n", k, v))
-			}
+		aVal := ll_find(ne.environment._llVal, aName.GetString())
+		if aVal == nil {
+			emit(fmt.Sprintf("%+v", ne.environment._llVal))
+
 			emit(fmt.Sprintln("key not found ", aName.GetString()))
 			panic("Key not found error")
 		}
@@ -747,9 +728,9 @@ func MakeEngine() *Engine {
 
 	e = add(e, ".E", NewCode(".E", 0, func(e *Engine, c *Thingy) *Engine {
 		fmt.Println("Engine environment")
-		dumpEnv(e.environment)
+		dumpEnv(e.environment._llVal)
 		fmt.Println("Thingy environment")
-		dumpEnv(c.environment)
+		dumpEnv(c.environment._llVal)
 		return e
 	}))
 

@@ -22,7 +22,6 @@ import "fmt"
 import "strings"
 import "io/ioutil"
 import "strconv"
-import "sort"
 import "log"
 import "io"
 import (
@@ -31,7 +30,7 @@ import (
 import "github.com/chzyer/readline"
 
 var precision uint = 256
-var interpreter_debug = false
+var interpreter_debug = true
 var interpreter_trace = false
 var traceProg = false
 var debug = false
@@ -57,6 +56,7 @@ type Thingy struct {
 	_arrayVal                stack
 	_engineVal               *Engine
 	_hashVal                 map[string]*Thingy
+	_llVal                   *ll_t
 	_bytesVal                []byte
 	_note                    string
 	arity                    int    //The number of arguments this function pops off the stack, minus the number of return results`
@@ -97,6 +97,15 @@ func (t *Thingy) setStub(val StepFunc) {
 	t._stub = val
 	t._source = "A function added by setStub"
 	t._note = "A function added by setStub"
+}
+
+func cloneMap(m map[string]*Thingy) map[string]*Thingy {
+	//fmt.Printf("Cloning map %v\n\n", m )
+	var nm = make(map[string]*Thingy, 1000)
+	for k, v := range m {
+		nm[k] = v
+	}
+	return nm
 }
 
 //Builds a string that, when EVALed, will recreate the data structure
@@ -208,8 +217,6 @@ func cloneEngine(t *Engine, immutable bool) *Engine {
 
 func cloneEnv(env *Thingy) *Thingy {
 	newEnv := clone(env)
-	newEnv._hashVal = cloneMap(env._hashVal)
-	//fmt.Printf("Cloning map %v\n\n", m )
 	return newEnv
 }
 
@@ -217,7 +224,7 @@ func add(e *Engine, s string, t *Thingy) *Engine {
 	ne := cloneEngine(e, false)
 	t._note = s
 	t._source = s
-	ne.environment._hashVal[s] = t
+	ne.environment._llVal = ll_add(ne.environment._llVal, s, t)
 	//t.environment = ne.environment
 	t.share_parent_environment = true
 	t.no_environment = true
@@ -286,7 +293,6 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 			val, ok := nameSpaceLookup(ne, c)
 			if ok {
 				if val.tiipe == "CODE" {
-
 					ne.codeStack = pushStack(ne.codeStack, val)
 					ne.lexStack = pushStack(ne.lexStack, e.environment)
 				} else {
@@ -295,7 +301,7 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 			} else {
 				var _, ok = strconv.ParseFloat(c.getSource(), 32) //Numbers don't need to be defined in the namespace
 				if ok != nil {
-					//fmt.Printf("Warning:  %v not defined\n", c.getString())
+					fmt.Printf("Warning:  %v not defined at %v:%v\n", c.GetString(), c._filename, c._line)
 
 				}
 				ne.dataStack = pushStack(ne.dataStack, c)
@@ -452,16 +458,19 @@ func popStack(s stack) (*Thingy, stack) {
 }
 
 //neatly print out all the variables in scope
-func dumpEnv(e *Thingy) {
-	if e != nil {
-		emit(fmt.Sprintf("===Env=== %p\n", e))
-		keys := make([]string, 0, len(e._hashVal))
-		for k, v := range e._hashVal {
-			keys = append(keys, k+":"+v.getSource()+"\n")
-		}
-		sort.Strings(keys)
-		emit(fmt.Sprintln(keys))
-		emit(fmt.Sprintf("===End Env=== %p\n", e))
+func dumpEnv(ll *ll_t) {
+	if ll != nil {
+		emit(fmt.Sprintf("===Env=== %p\n", ll))
+		dumpEnvRec(ll.cdr)
+		emit(fmt.Sprintf("===End Env=== %p\n", ll))
+
+	}
+}
+
+func dumpEnvRec(ll *ll_t) {
+	if ll != nil {
+		emit(ll.key + ": " + ll.val.getSource() + "\n")
+		dumpEnvRec(ll.cdr)
 	}
 }
 
@@ -489,7 +498,7 @@ func doStep(e *Engine) (*Engine, bool) {
 		}
 
 		if interpreter_debug && v.environment != nil {
-			dumpEnv(v.environment)
+			dumpEnv(v.environment._llVal)
 		}
 
 		if v.tiipe == "CODE" && v.no_environment == true { //Macros do not carry their own environment, they use the environment from the previous instruction
