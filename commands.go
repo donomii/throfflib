@@ -7,28 +7,30 @@ package throfflib
 
 //import "unsafe"
 //import "github.com/thinxer/go-tcc"
-import "github.com/codeskyblue/go-sh"
-import "math/big"
-import "fmt"
-import "time"
-import "strings"
-import "bufio"
-import "os"
-import "io/ioutil"
-import "strconv"
-import "math"
-import "runtime"
-import "github.com/edsrzf/mmap-go"
-
-//import "net/http"
-import "net"
-
-//import "html"
-import "log"
-import "io"
-import "database/sql"
-import "os/exec"
 import (
+	"bufio"
+	"database/sql"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"math"
+	"math/big"
+	"net"
+	"os"
+	"os/exec"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/codeskyblue/go-sh"
+	"github.com/edsrzf/mmap-go"
+
+	//import "net/http"
+
+	//import "html"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -370,6 +372,33 @@ func MakeEngine() *Engine {
 
 	e = add(e, "[", NewCode("BuildFuncFromStack", 9001, func(ne *Engine, c *Thingy) *Engine {
 		ne._funcLevel += 1 //To match the ] we will find on the stack
+		var f stack
+		ne = buildFunc(ne, f)
+		newFunc, _ := popStack(ne.dataStack)
+		newFunc.environment = ne.environment
+		return ne
+	}))
+
+	e = add(e, "}", NewCode("BuildFuncFromStack", 9001, func(ne *Engine, c *Thingy) *Engine {
+		ne._funcLevel += 1 //To match the { we will find on the stack
+		var f stack
+		ne = buildFunc(ne, f)
+		newFunc, _ := popStack(ne.dataStack)
+		newFunc.environment = ne.environment
+		return ne
+	}))
+
+	e = add(e, "」", NewCode("BuildFuncFromStack", 9001, func(ne *Engine, c *Thingy) *Engine {
+		ne._funcLevel += 1 //To match the { we will find on the stack
+		var f stack
+		ne = buildFunc(ne, f)
+		newFunc, _ := popStack(ne.dataStack)
+		newFunc.environment = ne.environment
+		return ne
+	}))
+
+	e = add(e, "】", NewCode("BuildFuncFromStack", 9001, func(ne *Engine, c *Thingy) *Engine {
+		ne._funcLevel += 1 //To match the { we will find on the stack
 		var f stack
 		ne = buildFunc(ne, f)
 		newFunc, _ := popStack(ne.dataStack)

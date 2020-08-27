@@ -18,24 +18,27 @@ import "C"
 
 //import "unsafe"
 //import "github.com/thinxer/go-tcc"
-import "fmt"
-import "strings"
-import "io/ioutil"
-import "strconv"
-import "log"
-import "io"
 import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"strconv"
+	"strings"
+
+	"github.com/chzyer/readline"
 	_ "github.com/mattn/go-sqlite3"
 )
-import "github.com/chzyer/readline"
 
+var PrintWarnings = true
 var precision uint = 256
-var interpreter_debug = true
+var interpreter_debug = false
 var interpreter_trace = false
 var traceProg = false
 var debug = false
 var USE_FUNCTION_CACHE = false
 var seqID = 0 //Every instruction in the program gets a unique number, used by the optimiser and similar tasks
+var BraceMode = "throff"
 
 type StepFunc func(*Engine, *Thingy) *Engine
 
@@ -249,10 +252,10 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 	ne := cloneEngine(e, false) //FIXME e should already be a clone?
 	//Are we in function-building mode?
 	ne._prevLevel = ne._funcLevel
-	if c.getSource() == "[" {
+	if e.isEndBrace(c.getSource()) {
 		ne._funcLevel -= 1
 	} //Finish a (possibly nested) function
-	if c.getSource() == "]" {
+	if e.isStartBrace(c.getSource()) {
 		//fmt.Printf("Cached func: %v - %v, %v\n", c._id, ne._functionCache[c._id], c.getSource())
 		if USE_FUNCTION_CACHE && ne._functionCache[c._id] != nil {
 
@@ -277,9 +280,9 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 	} //Start a (possibly nested) function
 	//fmt.Printf("TOKEN: in function level: %v\n", ne._funcLevel)
 	if ne._funcLevel < 0 {
-		emit(fmt.Sprintf("Unmatched [ at line %v\n", c._line))
+		emit(fmt.Sprintf("Unmatched [ or }at line %v\n", c._line))
 		engineDump(ne)
-		panic(fmt.Sprintf("Unmatched [ at line %v\n", c._line))
+		panic(fmt.Sprintf("Unmatched [ or } at line %v\n", c._line))
 
 	} //Too many close functions, not enough opens
 	if ne._funcLevel == 0 { //Either we are not building a function, or we just finished
@@ -287,7 +290,7 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 			//fmt.Printf("debug: %v\n", c._source)
 			ne._buildingFunc = false //Switch out of phase 1 build mode
 			ne._funcLevel += 1       //Start counting function brackets
-			ne.dataStack = pushStack(ne.dataStack, NewString("[", e.environment))
+			ne.dataStack = pushStack(ne.dataStack, NewString(e.CurrentEndBrace(), e.environment))
 			return c._stub(ne, c)
 		} else {
 			val, ok := nameSpaceLookup(ne, c)
@@ -301,7 +304,9 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 			} else {
 				var _, ok = strconv.ParseFloat(c.getSource(), 32) //Numbers don't need to be defined in the namespace
 				if ok != nil {
-					fmt.Printf("Warning:  %v not defined at %v:%v\n", c.GetString(), c._filename, c._line)
+					if PrintWarnings {
+						fmt.Printf("Warning:  %v not defined at %v:%v\n", c.GetString(), c._filename, c._line)
+					}
 
 				}
 				ne.dataStack = pushStack(ne.dataStack, c)
@@ -433,6 +438,34 @@ func NewEngine() *Engine {
 	e._funcLevel = 0
 	e._safeMode = false
 	return e
+}
+
+func (e *Engine) isStartBrace(s string) bool {
+	//fmt.Printf("Comparing %v and %v\n", s, "{「｛")
+	if BraceMode == "throff" {
+		return s == "]"
+	} else {
+		return strings.ContainsAny(s, "{「【")
+	}
+	return false
+}
+
+func (e *Engine) isEndBrace(s string) bool {
+	if BraceMode == "throff" {
+		return s == "["
+	} else {
+		return strings.ContainsAny(s, "}」】")
+	}
+	return false
+}
+
+func (e *Engine) CurrentEndBrace() string {
+	if BraceMode == "throff" {
+		return "["
+	} else {
+		return "}"
+	}
+	return "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 }
 
 //Sometimes, we just don't want to do anything
@@ -578,8 +611,18 @@ func tokenise(s string, filename string) stack {
 	return tokens
 }
 
+func reverseStringArray(ss []string) {
+	last := len(ss) - 1
+	for i := 0; i < len(ss)/2; i++ {
+		ss[i], ss[last-i] = ss[last-i], ss[i]
+	}
+}
+
 func StringsToTokens(stringBits []string) stack {
 	var tokens stack
+	if BraceMode != "throff" {
+		reverseStringArray(stringBits)
+	}
 	for i, v := range stringBits {
 		if len(v) > 0 {
 			t := NewToken(v, NewHash())
@@ -821,16 +864,16 @@ func buildFunc(e *Engine, f stack) *Engine {
 	var v *Thingy
 	ne := cloneEngine(e, false)
 	v, ne.dataStack = popStack(ne.dataStack)
-	if v.getSource() == "[" {
+	if e.isEndBrace(v.getSource()) {
 		ne._funcLevel += 1
 	}
-	if v.getSource() == "]" {
+	if e.isStartBrace(v.getSource()) {
 		ne._funcLevel -= 1
 	}
 
 	//fmt.Printf("BUILDFUNC: in function level: %v\n", ne._funcLevel)
 	//fmt.Printf("Considering %v\n", v.getSource())
-	if v.getSource() == "]" && ne._funcLevel == 0 {
+	if e.isStartBrace(v.getSource()) && ne._funcLevel == 0 {
 		//fmt.Printf("fINISHING FUNCTION\n")
 		//This code is called when the newly-built function is activated
 		newFunc := NewCode("InterpretedCode", 0, buildFuncStepper)

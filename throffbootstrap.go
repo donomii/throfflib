@@ -4,6 +4,9 @@ func BootStrapString() string {
 
 	var str string
 	str = `
+	ALIAS 発して => EMIT TOK
+	ALIAS やれ => CALL TOK
+	
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
 
 	NAMETESTBLOCK [ Reverse ] [
