@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/abadojack/whatlanggo"
 	"github.com/chzyer/readline"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -729,13 +730,17 @@ func Repl(e *Engine) *Engine {
 
 	return realRepl(e, l)
 }
+func DetectJapanese(text string) bool {
+	return strings.ContainsAny(text, "　「」わをそ") || whatlanggo.Jpn == whatlanggo.Detect(text).Lang
 
+}
 func realRepl(e *Engine, rl *readline.Instance) *Engine {
 	//engineDump(e)
 	emit(fmt.Sprintf("Ready> "))
 	//reader := bufio.NewReader(os.Stdin)
 	//text, _ := reader.ReadString('\n')
 	line, err := rl.Readline()
+	emit("\n")
 	if err == readline.ErrInterrupt {
 		if len(line) == 0 {
 			return e
@@ -745,12 +750,29 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 	} else if err == io.EOF {
 		return e
 	}
+
 	text := line
+	var strs []string
 	if len(text) > 0 {
-		e.LoadTokens(tokenise(text, "repl"))
+
+		if DetectJapanese(text) {
+			//lang = "jp"
+			BraceMode = "forth"
+			strs = strings.Split(text, "　")
+
+			//log.Printf("Evaluating %v\n", strs)
+			//reverseStringArray(strs)
+			e.LoadTokens(StringsToTokens(strs))
+			//log.Println("Japanese detected")
+		} else {
+			BraceMode = "throff"
+			e.LoadTokens(tokenise(text, "repl"))
+		}
 		//stackDump(e.codeStack)
 		e, _ = run(e)
-		emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].GetString()))
+		emit("\n")
+		//emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].GetString()))
+		prettyStackDump(e.dataStack)
 		realRepl(e, rl)
 		return e
 	} else {
@@ -827,6 +849,20 @@ func stackDump(s stack) {
 			emit(fmt.Sprintf(":%v(%v):", s[len(s)-1-i].getSource(), s[len(s)-1-i].tiipe))
 		}
 	}
+}
+
+func prettyStackDump(s stack) {
+	emit(fmt.Sprintf("\nStack(%v)  ", len(s)-1))
+	//fmt.Printf("\nStack(%v)  ", len(s))
+	for i := len(s) - 1; i > 0; i-- {
+
+		emit(fmt.Sprintf("%v", s[i].getSource()))
+		if i > 1 {
+			emit(" | ")
+		}
+
+	}
+	emit(fmt.Sprintf("\n"))
 }
 
 //This is the code that is called when a function is activated

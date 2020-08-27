@@ -753,7 +753,7 @@ DEFINE KEYS => [ MAP2 [ DROP SWAP ] KEYVALS ]
 
 
 
-->STRING [ Stack empty. ]
+COMMENT [ ->STRING [ Stack empty. ] ]
 
 
 DEFINE HELP => [ ITERATE [ PRINTLN ] A[
