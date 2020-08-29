@@ -1,8 +1,9 @@
-// lexical_copy_mode.go
-//
-// These functions provide lexical scoping.
+
+// These functions provide lexical scoping, using a linked list.
 //
 /* The strategy is: We use a linked list to hold all the variables, so we don't have to copy anything.  New variables
+	are added to the front of the list, and are automatically freed when the scope disappears
+	and releases the pointer to the front of the list.
  */
 
 package throfflib
@@ -33,7 +34,7 @@ func ll_find(ll *ll_t, search string) *Thingy {
 }
 
 //Search for the value of t, in its assigned scope.
-//Throff uses a flat namespace, much like its predecessor forth, except that a new copy is made each time we enter a function.
+//Throff uses relatively normal lexical scoping, except that the outer scopes are immutable.
 func nameSpaceLookup(e *Engine, t *Thingy) (*Thingy, bool) {
 	key := t.GetString()
 	val := ll_find(e.environment._llVal, key)

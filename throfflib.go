@@ -64,6 +64,8 @@ type Thingy struct {
 	_bytesVal                []byte
 	_note                    string
 	arity                    int    //The number of arguments this function pops off the stack, minus the number of return results`
+	arityIn                  int    //The number of arguments this function pops off the stack`
+	arityOut                 int    //The number of arguments this function pushes onto the stack (returned values)`
 	_intVal                  int    //Currently used for booleans, will also be used to cache string->int conversions
 	_id                      int    //Every token gets a unique id number, this allows us to do JIT on the code, among other tricks
 	_line                    int    //Line number of instruction
@@ -392,13 +394,15 @@ func NewWrapper(s interface{}) *Thingy {
 }
 
 //Wraps a native go function
-func NewCode(aName string, arity int, aFunc StepFunc) *Thingy {
+func NewCode(aName string, arity, arityIn, arityOut int, aFunc StepFunc) *Thingy {
 	t := newThingy()
 	t.tiipe = "CODE"
 	t.subType = "NATIVE"
 	t.setStub(aFunc)
 	t.setString(aName)
 	t.arity = arity
+	t.arityIn = arityIn
+	t.arityOut = arityOut
 	return t
 }
 
@@ -912,7 +916,7 @@ func buildFunc(e *Engine, f stack) *Engine {
 	if e.isStartBrace(v.getSource()) && ne._funcLevel == 0 {
 		//fmt.Printf("fINISHING FUNCTION\n")
 		//This code is called when the newly-built function is activated
-		newFunc := NewCode("InterpretedCode", 0, buildFuncStepper)
+		newFunc := NewCode("InterpretedCode", 0, 0, 0, buildFuncStepper)
 		newFunc.tiipe = "LAMBDA"
 		newFunc.subType = "INTERPRETED"
 		newFunc._arrayVal = f

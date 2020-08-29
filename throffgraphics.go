@@ -1,4 +1,4 @@
-// +build !android
+// +build !android,graphics
 
 // Copyright Jeremy Price - Praeceptamachinae.com
 //
@@ -7,63 +7,64 @@
 // +build !android
 
 package throfflib
+
 import (
 
-//"fmt"
- "strconv"
-"image/color"
- "github.com/go-gl/glfw/v3.1/glfw"
- "github.com/go-gl/gl/v2.1/gl"
- 	"image"
+	//"fmt"
+	"image"
+	"image/color"
 	"image/draw"
 	_ "image/png"
-// "github.com/llgcode/draw2d"
-"github.com/llgcode/draw2d/draw2dimg"
-//"github.com/llgcode/draw2d/draw2dkit"
+	"strconv"
+
+	"github.com/go-gl/gl/v2.1/gl"
+	"github.com/go-gl/glfw/v3.1/glfw"
+
+	// "github.com/llgcode/draw2d"
+	"github.com/llgcode/draw2d/draw2dimg"
+	//"github.com/llgcode/draw2d/draw2dkit"
 	"os"
 	"runtime"
 )
-type Point struct {
-        x int
-        y int
-}
 
+type Point struct {
+	x int
+	y int
+}
 
 var (
 	texture   uint32
 	rotationX float32
 	rotationY float32
-	gc *draw2dimg.GraphicContext
+	gc        *draw2dimg.GraphicContext
 )
 
-
-	func init() {
-    // This is needed to arrange that main() runs on main thread.
-    // See documentation for functions that are only allowed to be called from the main thread.
-    runtime.LockOSThread()
+func init() {
+	// This is needed to arrange that main() runs on main thread.
+	// See documentation for functions that are only allowed to be called from the main thread.
+	runtime.LockOSThread()
 }
 
 var CallbackState *Engine
 
-func WgCallback () {
+func WgCallback() {
 
-CallbackState = CallbackState.RunString("WGCALLBACK", "wg callback")
+	CallbackState = CallbackState.RunString("WGCALLBACK", "wg callback")
 
 }
 
-
 //Creates a new engine and populates it with the core functions
-func LoadGraphics(e *Engine) *Engine{
+func LoadGraphics(e *Engine) *Engine {
 
+	e = add(e, "glfw.Init", NewCode("glfw.Init", 0, func(e *Engine, c *Thingy) *Engine {
+		err := glfw.Init()
+		if err != nil {
+			panic(err)
+		}
+		return e
+	}))
 
-	e=add(e, "glfw.Init", NewCode("glfw.Init", 0, func (e *Engine,c *Thingy) *Engine {
-		    err := glfw.Init()
-			if err != nil {
-				panic(err)
-			}
-	return e}))
-
-	e=add(e, "GLFWEVENTLOOP", NewCode("GLFWEVENTLOOP", 1, func (e *Engine,c *Thingy) *Engine {
+	e = add(e, "GLFWEVENTLOOP", NewCode("GLFWEVENTLOOP", 1, func(e *Engine, c *Thingy) *Engine {
 		var el1 *Thingy
 		el1, e.dataStack = popStack(e.dataStack)
 		window := el1._structVal.(*glfw.Window)
@@ -83,36 +84,33 @@ func LoadGraphics(e *Engine) *Engine{
 			glfw.PollEvents()
 		}
 
+		return e
+	}))
 
-		return e}))
-
-
-
-	e=add(e, "RGBA", NewCode("RGBA", 3, func (e *Engine,c *Thingy) *Engine {
-		var el1, el2,el3,el4 *Thingy
+	e = add(e, "RGBA", NewCode("RGBA", 3, func(e *Engine, c *Thingy) *Engine {
+		var el1, el2, el3, el4 *Thingy
 		el1, e.dataStack = popStack(e.dataStack)
 		el2, e.dataStack = popStack(e.dataStack)
 		el3, e.dataStack = popStack(e.dataStack)
 		el4, e.dataStack = popStack(e.dataStack)
-		x1, _ := strconv.ParseInt( el1.GetString(), 10, 32 )
-		x2, _ := strconv.ParseInt( el2.GetString(), 10, 32 )
-		x3, _ := strconv.ParseInt( el3.GetString(), 10, 32 )
-		x4, _ := strconv.ParseInt( el4.GetString(), 10, 32 )
-		col := color.RGBA{uint8(x1),uint8(x2),uint8(x3),uint8(x4)}
+		x1, _ := strconv.ParseInt(el1.GetString(), 10, 32)
+		x2, _ := strconv.ParseInt(el2.GetString(), 10, 32)
+		x3, _ := strconv.ParseInt(el3.GetString(), 10, 32)
+		x4, _ := strconv.ParseInt(el4.GetString(), 10, 32)
+		col := color.RGBA{uint8(x1), uint8(x2), uint8(x3), uint8(x4)}
 		e.dataStack = append(e.dataStack, NewWrapper(col))
-		return e}))
+		return e
+	}))
 
-
-	e=add(e, "glfw.CreateWindow",  NewCode("glfw.CreateWindow", 2, func (ne *Engine,c *Thingy) *Engine {
-		var x,y,title *Thingy
+	e = add(e, "glfw.CreateWindow", NewCode("glfw.CreateWindow", 2, func(ne *Engine, c *Thingy) *Engine {
+		var x, y, title *Thingy
 
 		x, ne.dataStack = popStack(ne.dataStack)
 		y, ne.dataStack = popStack(ne.dataStack)
 		title, ne.dataStack = popStack(ne.dataStack)
 
-		xx, _ := strconv.ParseInt( x.GetString(), 10, 32 )
-		yy, _ := strconv.ParseInt( y.GetString(), 10, 32 )
-
+		xx, _ := strconv.ParseInt(x.GetString(), 10, 32)
+		yy, _ := strconv.ParseInt(y.GetString(), 10, 32)
 
 		glfw.WindowHint(glfw.Resizable, glfw.False)
 		glfw.WindowHint(glfw.ContextVersionMajor, 2)
@@ -124,10 +122,10 @@ func LoadGraphics(e *Engine) *Engine{
 		}
 
 		ne.dataStack = pushStack(ne.dataStack, NewWrapper(window))
-		return ne}))
-return e
+		return ne
+	}))
+	return e
 }
-
 
 func newTexture(file string) uint32 {
 	imgFile, err := os.Open(file)
