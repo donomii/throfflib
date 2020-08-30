@@ -4,8 +4,9 @@ func BootStrapString() string {
 
 	var str string
 	str = `
-	ALIAS 発して => EMIT TOK
+	ALIAS 話して => EMIT TOK
 	ALIAS やれ => CALL TOK
+	ALIAS 説明して => DEFINE TOK
 	
 	TESTBLOCK [ PRINTLN [ Bootstrap complete, ready for commands ] ]
 
@@ -13,6 +14,7 @@ func BootStrapString() string {
 		TEST  REVERSE A[ Monday Tuesday Wednesday Thursday Friday ]A A[ Friday Thursday Wednesday Tuesday Monday ]A [ Reverse Array ] ]
 
 DEFINE REVERSE => [ FOLD [ UNSHIFTARRAY ] A[ ]A ]
+
 
 DEFINE SWATCH => [ 
 CALL/SELF [
@@ -1235,9 +1237,10 @@ DEFINE A[RECURSE => [
 
 
 
-DEFINE A[ => [
-   A[RECURSE NEWARRAY
-]
+DEFINE A[ => [ A[RECURSE NEWARRAY ]
+
+
+.S
 
 BIND ]A => ->STRING ]A TOK
 
@@ -1621,8 +1624,6 @@ ALIAS BIND TOK : TOK
 		COMMENT [ PRINTLN DEFINE_N EMIT [ DEFINING:  ] ]
 		: DEFINE_F TOK
 		: DEFINE_N TOK
-
-
 	]
 
 : OR TOK  ->FUNC [
@@ -1678,7 +1679,8 @@ COMMENT [ LOADING STANDARD LIBRARY .... ]
 
 ITROFF
 IDEBUGOFF
-DEBUGOFF
+DEBUG
+
 
 SETTYPE CODE TOK [ EXIT .S PRINTLN [ ERROR: Read past stack bottom attempted ]  ]
 `

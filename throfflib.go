@@ -283,9 +283,9 @@ func tokenStepper(e *Engine, c *Thingy) *Engine {
 	} //Start a (possibly nested) function
 	//fmt.Printf("TOKEN: in function level: %v\n", ne._funcLevel)
 	if ne._funcLevel < 0 {
-		emit(fmt.Sprintf("Unmatched [ or }at line %v\n", c._line))
+		emit(fmt.Sprintf("Unmatched [ or 」　at line %v\n", c._line))
 		engineDump(ne)
-		panic(fmt.Sprintf("Unmatched [ or } at line %v\n", c._line))
+		panic(fmt.Sprintf("Unmatched [ or 」at line %v\n", c._line))
 
 	} //Too many close functions, not enough opens
 	if ne._funcLevel == 0 { //Either we are not building a function, or we just finished
@@ -450,7 +450,7 @@ func (e *Engine) isStartBrace(s string) bool {
 	if BraceMode == "throff" {
 		return s == "]"
 	} else {
-		return strings.ContainsAny(s, "{「【")
+		return strings.ContainsAny(s, "]【")
 	}
 	return false
 }
@@ -459,7 +459,7 @@ func (e *Engine) isEndBrace(s string) bool {
 	if BraceMode == "throff" {
 		return s == "["
 	} else {
-		return strings.ContainsAny(s, "}」】")
+		return strings.ContainsAny(s, "[】")
 	}
 	return false
 }
@@ -468,7 +468,7 @@ func (e *Engine) CurrentEndBrace() string {
 	if BraceMode == "throff" {
 		return "["
 	} else {
-		return "}"
+		return "】"
 	}
 	return "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 }

@@ -377,15 +377,6 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "}", NewCode("BuildFuncFromStack", 9001, 0, 0, func(ne *Engine, c *Thingy) *Engine {
-		ne._funcLevel += 1 //To match the { we will find on the stack
-		var f stack
-		ne = buildFunc(ne, f)
-		newFunc, _ := popStack(ne.dataStack)
-		newFunc.environment = ne.environment
-		return ne
-	}))
-
 	e = add(e, "」", NewCode("BuildFuncFromStack", 9001, 0, 0, func(ne *Engine, c *Thingy) *Engine {
 		ne._funcLevel += 1 //To match the { we will find on the stack
 		var f stack
@@ -395,12 +386,24 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
+	e = add(e, "「", NewCode("StartFunctionDef", 0, 0, 1, func(ne *Engine, c *Thingy) *Engine {
+		ne._buildingFunc = true
+		ne.dataStack = pushStack(ne.dataStack, c)
+		return ne
+	}))
+
 	e = add(e, "】", NewCode("BuildFuncFromStack", 9001, 0, 0, func(ne *Engine, c *Thingy) *Engine {
 		ne._funcLevel += 1 //To match the { we will find on the stack
 		var f stack
 		ne = buildFunc(ne, f)
 		newFunc, _ := popStack(ne.dataStack)
 		newFunc.environment = ne.environment
+		return ne
+	}))
+
+	e = add(e, "【", NewCode("StartFunctionDef", 0, 0, 1, func(ne *Engine, c *Thingy) *Engine {
+		ne._buildingFunc = true
+		ne.dataStack = pushStack(ne.dataStack, c)
 		return ne
 	}))
 
