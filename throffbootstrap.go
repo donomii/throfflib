@@ -4,6 +4,7 @@ func BootStrapString() string {
 
 	var str string
 	str = `
+	ALIAS です => BIND TOK
 	ALIAS 話して => EMIT TOK
 	ALIAS やれ => CALL TOK
 	ALIAS 説明して => DEFINE TOK
@@ -1679,7 +1680,7 @@ COMMENT [ LOADING STANDARD LIBRARY .... ]
 
 ITROFF
 IDEBUGOFF
-DEBUG
+
 
 
 SETTYPE CODE TOK [ EXIT .S PRINTLN [ ERROR: Read past stack bottom attempted ]  ]

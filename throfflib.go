@@ -31,7 +31,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var PrintWarnings = true
+var PrintWarnings = false
 var precision uint = 256
 var interpreter_debug = false
 var interpreter_trace = false
@@ -718,10 +718,16 @@ var completer = readline.NewPrefixCompleter(
 	readline.PcItem("sleep"),
 )
 
-func Repl(e *Engine) *Engine {
+func Repl(e *Engine, japanese bool) *Engine {
+	prompt := ""
+	if japanese {
+		prompt = "\033[32m小日本語 » "
+	} else {
+		prompt = "Throff \033[31m»\033[0m "
+	}
 	l, err := readline.NewEx(&readline.Config{
-		Prompt:          "Throff \033[31m»\033[0m ",
-		HistoryFile:     "/tmp/readline.tmp",
+		Prompt:          prompt,
+		HistoryFile:     "transcript.txt",
 		AutoComplete:    completer,
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
@@ -744,7 +750,7 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 	//reader := bufio.NewReader(os.Stdin)
 	//text, _ := reader.ReadString('\n')
 	line, err := rl.Readline()
-	emit("\n")
+	emit("\n\033[33m")
 	if err == readline.ErrInterrupt {
 		if len(line) == 0 {
 			return e
@@ -774,9 +780,10 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 		}
 		//stackDump(e.codeStack)
 		e, _ = run(e)
-		emit("\n")
+		emit("\n\n")
 		//emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].GetString()))
 		prettyStackDump(e.dataStack)
+
 		realRepl(e, rl)
 		return e
 	} else {
@@ -856,6 +863,9 @@ func stackDump(s stack) {
 }
 
 func prettyStackDump(s stack) {
+	if len(s) < 2 {
+		return
+	}
 	emit(fmt.Sprintf("\nStack(%v)  ", len(s)-1))
 	//fmt.Printf("\nStack(%v)  ", len(s))
 	for i := len(s) - 1; i > 0; i-- {
