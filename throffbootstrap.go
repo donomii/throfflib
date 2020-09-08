@@ -4,6 +4,12 @@ func BootStrapString() string {
 
 	var str string
 	str = `
+	DEFINE THEN => [ ] 
+	DEFINE ELSE => [ ]
+	DEFINE なら => [ ]
+	DEFINE そうでなければ => [ ]
+	DEFINE くでさい => [ IF .S ROLL 2 SWAP ]
+	
 	ALIAS です => BIND TOK
 	ALIAS 話して => EMIT TOK
 	ALIAS やれ => CALL TOK

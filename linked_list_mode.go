@@ -1,10 +1,9 @@
-
 // These functions provide lexical scoping, using a linked list.
 //
 /* The strategy is: We use a linked list to hold all the variables, so we don't have to copy anything.  New variables
-	are added to the front of the list, and are automatically freed when the scope disappears
-	and releases the pointer to the front of the list.
- */
+are added to the front of the list, and are automatically freed when the scope disappears
+and releases the pointer to the front of the list.
+*/
 
 package throfflib
 
@@ -31,6 +30,14 @@ func ll_find(ll *ll_t, search string) *Thingy {
 		return ll.val
 	}
 	return ll_find(ll.cdr, search)
+}
+
+func ll_to_hash(ll *ll_t, h map[string]*Thingy) *Thingy {
+	if ll == nil {
+		return nil
+	}
+	h[ll.key] = ll.val
+	return ll_to_hash(ll.cdr, h)
 }
 
 //Search for the value of t, in its assigned scope.

@@ -237,6 +237,17 @@ func add(e *Engine, s string, t *Thingy) *Engine {
 	return ne
 }
 
+func getEnvironmentKeys(e *Engine) []string {
+	env := e.environment
+	h := map[string]*Thingy{}
+	ll_to_hash(env._llVal, h)
+	out := []string{}
+	for k, _ := range h {
+		out = append(out, k)
+	}
+	return out
+}
+
 func newThingy() *Thingy {
 	t := new(Thingy)
 	//The default action is to push the thing on to the data stack
@@ -723,7 +734,7 @@ func Repl(e *Engine, japanese bool) *Engine {
 	if japanese {
 		prompt = "\033[32m小日本語 » "
 	} else {
-		prompt = "Throff \033[31m»\033[0m "
+		prompt = "\033[32mThroff » "
 	}
 	l, err := readline.NewEx(&readline.Config{
 		Prompt:          prompt,
@@ -741,7 +752,7 @@ func Repl(e *Engine, japanese bool) *Engine {
 	return realRepl(e, l)
 }
 func DetectJapanese(text string) bool {
-	return strings.ContainsAny(text, "　「」わをそ") || whatlanggo.Jpn == whatlanggo.Detect(text).Lang
+	return strings.ContainsAny(text, "　【】「」わをそ") || whatlanggo.Jpn == whatlanggo.Detect(text).Lang
 
 }
 func realRepl(e *Engine, rl *readline.Instance) *Engine {
@@ -749,6 +760,11 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 	emit(fmt.Sprintf("Ready> "))
 	//reader := bufio.NewReader(os.Stdin)
 	//text, _ := reader.ReadString('\n')
+	rl.Config.AutoComplete = readline.NewPrefixCompleter(readline.PcItemDynamic(
+		func(string) []string {
+			return getEnvironmentKeys(e)
+		},
+	))
 	line, err := rl.Readline()
 	emit("\n\033[33m")
 	if err == readline.ErrInterrupt {
@@ -782,7 +798,7 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 		e, _ = run(e)
 		emit("\n\n")
 		//emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].GetString()))
-		prettyStackDump(e.dataStack)
+		prettyStackDump(e.dataStack, BraceMode == "forth")
 
 		realRepl(e, rl)
 		return e
@@ -862,11 +878,15 @@ func stackDump(s stack) {
 	}
 }
 
-func prettyStackDump(s stack) {
+func prettyStackDump(s stack, japanese bool) {
 	if len(s) < 2 {
 		return
 	}
-	emit(fmt.Sprintf("\nStack(%v)  ", len(s)-1))
+	if japanese {
+		emit(fmt.Sprintf("\n思い出(%v)  ", len(s)-1))
+	} else {
+		emit(fmt.Sprintf("\nMemories(%v)  ", len(s)-1))
+	}
 	//fmt.Printf("\nStack(%v)  ", len(s))
 	for i := len(s) - 1; i > 0; i-- {
 
