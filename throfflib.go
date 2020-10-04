@@ -766,7 +766,8 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 		},
 	))
 	line, err := rl.Readline()
-	emit("\n\033[33m")
+	rl.Write([]byte("\033[33m"))
+	emit("\n")
 	if err == readline.ErrInterrupt {
 		if len(line) == 0 {
 			return e
