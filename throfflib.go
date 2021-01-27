@@ -536,7 +536,7 @@ func doStep(e *Engine) (*Engine, bool) {
 		dyn = lex.errorChain
 
 		//Move to own routine?
-		if v._line != 0 && len(v._filename) > 1 {
+		if false && v._line != 0 && len(v._filename) > 1 {
 			m := ne._heatMap[v._filename]
 			if m == nil {
 				m = make([]int, 1000000, 1000000)
@@ -802,6 +802,68 @@ func realRepl(e *Engine, rl *readline.Instance) *Engine {
 		prettyStackDump(e.dataStack, BraceMode == "forth")
 
 		realRepl(e, rl)
+		return e
+	} else {
+		return e
+	}
+}
+
+func Shell(e *Engine, japanese bool) *Engine {
+	prompt := ""
+	prompt = "\033[32mShell » "
+	l, err := readline.NewEx(&readline.Config{
+		Prompt:          prompt,
+		HistoryFile:     "transcript.txt",
+		AutoComplete:    completer,
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer l.Close()
+	log.SetOutput(l.Stderr())
+
+	return realShell(e, l)
+}
+func realShell(e *Engine, rl *readline.Instance) *Engine {
+	//engineDump(e)
+	emit(fmt.Sprintf("Ready> "))
+	//reader := bufio.NewReader(os.Stdin)
+	//text, _ := reader.ReadString('\n')
+	rl.Config.AutoComplete = readline.NewPrefixCompleter(readline.PcItemDynamic(
+		func(string) []string {
+			return getEnvironmentKeys(e)
+		},
+	))
+	line, err := rl.Readline()
+	rl.Write([]byte("\033[33m"))
+	emit("\n")
+	if err == readline.ErrInterrupt {
+		if len(line) == 0 {
+			return e
+		} else {
+			//continue
+		}
+	} else if err == io.EOF {
+		return e
+	}
+
+	if len(line) > 0 {
+		text := "CMDINTER A[ " + line + " ]A "
+		//fmt.Println(text)
+		BraceMode = "throff"
+		e.LoadTokens(tokenise(text, "repl"))
+
+		//stackDump(e.codeStack)
+		fmt.Println("runnng command", text)
+		e, _ = run(e)
+		//emit("\n\n")
+		fmt.Println("Dumping remaining stack")
+		//emit(fmt.Sprintln(e.dataStack[len(e.dataStack)-1].GetString()))
+		prettyStackDump(e.dataStack, BraceMode == "forth")
+		fmt.Println("looping")
+		realShell(e, rl)
 		return e
 	} else {
 		return e

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/donomii/goof"
+
 	"github.com/codeskyblue/go-sh"
 	"github.com/edsrzf/mmap-go"
 
@@ -1390,7 +1392,7 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "CMDSTDOUTSTDERR", NewCode("CMDSTDOUTSTDERR", 0, 0, 0, func(ne *Engine, c *Thingy) *Engine {
+	e = add(e, "CMDSTDOUTSTDERR", NewCode("CMDSTDOUTSTDERR", 1, 1, 0, func(ne *Engine, c *Thingy) *Engine {
 		var el_arr *Thingy
 		el_arr, ne.dataStack = popStack(ne.dataStack)
 
@@ -1403,6 +1405,24 @@ func MakeEngine() *Engine {
 		stdoutStderr, _ := cmd.CombinedOutput()
 
 		ret := NewString(string(stdoutStderr), nil)
+
+		ne.dataStack = pushStack(ne.dataStack, ret)
+		return ne
+	}))
+
+	e = add(e, "CMDINTER", NewCode("CMDINTER", 0, 1, 1, func(ne *Engine, c *Thingy) *Engine {
+		var el_arr *Thingy
+		el_arr, ne.dataStack = popStack(ne.dataStack)
+
+		var argv = []string{}
+		for _, v := range el_arr._arrayVal {
+			argv = append(argv, v.GetString())
+		}
+
+		cmd := exec.Command(argv[0], argv[1:]...)
+		goof.QuickCommandInteractive(cmd)
+
+		ret := NewString(fmt.Sprintf("%v", 1), nil)
 
 		ne.dataStack = pushStack(ne.dataStack, ret)
 		return ne
