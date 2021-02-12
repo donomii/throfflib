@@ -155,7 +155,7 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "OPENFILE", NewCode("OPENFILE", -1, 1, 0, func(ne *Engine, c *Thingy) *Engine {
+	e = add(e, "OPENFILE", NewCode("OPENFILE", -1, 1, 2, func(ne *Engine, c *Thingy) *Engine {
 		var el1 *Thingy
 
 		el1, ne.dataStack = popStack(ne.dataStack)
