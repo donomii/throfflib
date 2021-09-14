@@ -52,12 +52,12 @@ type Thingy struct {
 	userType    *Thingy  //A purely user defined type.  Can be anything
 	_source     string   //A string that, in theory, could be eval-ed to recreate the data structure.  Also used for if statement comparisons
 	environment *Thingy  //Functions carry a reference to their parent environment, which allows us to create a new environment for the function to run in each time it is called
-	errorChain  stack    //Error handlers are functions that are kept on a stack
+	errorChain  Stack    //Error handlers are functions that are kept on a stack
 	//_parentEnvironment *Thingy
 	lock                     *Thingy
 	_structVal               interface{}
 	_stringVal               string
-	_arrayVal                stack
+	_arrayVal                Stack
 	_engineVal               *Engine
 	_hashVal                 map[string]*Thingy
 	_llVal                   *ll_t
@@ -77,14 +77,14 @@ type Thingy struct {
 
 }
 
-type stack []*Thingy
+type Stack []*Thingy
 type Engine struct {
 	//previousEngine	*Engine
 	environment    *Thingy //The current lexical environment
-	dataStack      stack   //The argument stack
-	dyn            stack   //The current dynamic environment
-	codeStack      stack   //The future of the program
-	lexStack       stack
+	dataStack      Stack   //The argument stack
+	dyn            Stack   //The current dynamic environment
+	codeStack      Stack   //The future of the program
+	lexStack       Stack
 	_buildingFunc  bool //do we run functions or just shift them to the data stack?
 	_funcLevel     int
 	_prevLevel     int
@@ -237,6 +237,10 @@ func add(e *Engine, s string, t *Thingy) *Engine {
 	return ne
 }
 
+func Add(e *Engine, s string, t *Thingy) *Engine {
+	return add(e, s, t)
+}
+
 func getEnvironmentKeys(e *Engine) []string {
 	env := e.environment
 	h := map[string]*Thingy{}
@@ -346,6 +350,8 @@ func NewToken(aString string, env *Thingy) *Thingy {
 	t.environment = env
 	t._stub = tokenStepper
 	t.arity = 0
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 
@@ -363,6 +369,8 @@ func NewBytes(bytes []byte, env *Thingy) *Thingy {
 		return ne
 	}
 	t.arity = -1
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 
@@ -380,6 +388,8 @@ func NewString(aString string, env *Thingy) *Thingy {
 		return ne
 	}
 	t.arity = -1
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 
@@ -390,6 +400,8 @@ func NewContinuation(e *Engine) *Thingy {
 	t.subType = "NATIVE"
 	t.setString("Continuation")
 	t._engineVal = e
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 
@@ -401,6 +413,8 @@ func NewWrapper(s interface{}) *Thingy {
 	t.subType = "NATIVE"
 	t.setString("Native structure wrapper")
 	t.arity = -1
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 
@@ -414,16 +428,20 @@ func NewCode(aName string, arity, arityIn, arityOut int, aFunc StepFunc) *Thingy
 	t.arity = arity
 	t.arityIn = arityIn
 	t.arityOut = arityOut
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 
-func NewArray(a stack) *Thingy {
+func NewArray(a Stack) *Thingy {
 	t := newThingy()
 	t.tiipe = "ARRAY"
 	t.subType = "INTERPRETED"
 	t.setString("Array - add code to fill this in properly")
 	t.arity = -1
 	t._arrayVal = a
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 
@@ -444,6 +462,8 @@ func NewBool(a int) *Thingy {
 	t.setString("BOOLEAN")
 	t._intVal = a
 	t.arity = -1
+	seqID = seqID + 1
+	t._id = seqID
 	return t
 }
 func NewEngine() *Engine {
@@ -490,12 +510,12 @@ func NullStep(e *Engine) *Engine {
 }
 
 //Note, it works on immutable stacks, giving us the ability to save old engine states
-func pushStack(s stack, v *Thingy) stack {
+func pushStack(s Stack, v *Thingy) Stack {
 	return append(s, v)
 }
 
 //Note, it works on immutable stacks, giving us the ability to save old engine states
-func popStack(s stack) (*Thingy, stack) {
+func popStack(s Stack) (*Thingy, Stack) {
 
 	if len(s) > 0 {
 		v, sret := s[len(s)-1], s[:len(s)-1]
@@ -527,7 +547,7 @@ func dumpEnvRec(ll *ll_t) {
 func doStep(e *Engine) (*Engine, bool) {
 	if len(e.codeStack) > 0 { //If there are any instructions left
 		var v, lex *Thingy
-		var dyn stack
+		var dyn Stack
 		ne := cloneEngine(e, false) //Clone the current engine state.  The false means "do not clone the lexical environment" i.e. it
 		//will be common to this step and the previous step.  Otherwise we would be running in fully
 		//immutable mode (to come)
@@ -602,14 +622,27 @@ func SlurpFile(fname string) string {
 	return string(content)
 }
 
-func tokenise(s string, filename string) stack {
+func tokenise(s string, filename string) Stack {
 	var line int = 0
 	s = strings.Replace(s, "\n", " LINEBREAKHERE ", -1)
 	s = strings.Replace(s, "\r", " ", -1)
 	s = strings.Replace(s, "\t", " ", -1)
 	stringBits := strings.Split(s, " ")
-	var tokens stack
+	var tokens Stack
+	ts := []string{}
 	for _, v := range stringBits {
+		if len(v) > 0 && (v[0] == '\'' || v[0] == '^') {
+			v = v[1:]
+			ts = append(ts, "[")
+			ts = append(ts, v)
+			ts = append(ts, "]")
+
+		} else {
+			ts = append(ts, v)
+		}
+	}
+
+	for _, v := range ts {
 		seqID = seqID + 1
 		if len(v) > 0 {
 			if v == "LINEBREAKHERE" {
@@ -634,8 +667,8 @@ func reverseStringArray(ss []string) {
 	}
 }
 
-func StringsToTokens(stringBits []string) stack {
-	var tokens stack
+func StringsToTokens(stringBits []string) Stack {
+	var tokens Stack
 	if BraceMode != "throff" {
 		reverseStringArray(stringBits)
 	}
@@ -673,7 +706,7 @@ func (e *Engine) Run() *Engine {
 	return e
 }
 
-func (e *Engine) LoadTokens(s stack) {
+func (e *Engine) LoadTokens(s Stack) {
 	for _, elem := range s {
 		elem.environment = e.environment
 		e.lexStack = pushStack(e.lexStack, e.environment)
@@ -907,13 +940,27 @@ func (e *Engine) CallArray(s string, args []string) ([]string, *Engine) {
 	return out, e
 }
 
+func reverse(ss []string) {
+	last := len(ss) - 1
+	for i := 0; i < len(ss)/2; i++ {
+		ss[i], ss[last-i] = ss[last-i], ss[i]
+	}
+}
+
 func (e *Engine) CallArgs(s string, args ...string) (string, *Engine) {
 	e.LoadTokens(tokenise(s, "CallArgs from go"))
+	var tokens Stack
+	reverse(args)
 	for _, v := range args {
-		e.LoadTokens(tokenise(v, "CallArgs args loader"))
+		t := NewToken(v, NewHash())
+		t._id = seqID
+		t._line = -1
+		t._filename = "CallArgs args loader"
+		tokens = pushStack(tokens, t)
 	}
+	e.LoadTokens(tokens)
 	e, _ = run(e)
-	return e.DataStackTop().GetString(), e
+	return "", e
 }
 
 func (e *Engine) CallArgs1(s string, args ...interface{}) (string, *Engine) {
@@ -932,7 +979,7 @@ func (e *Engine) RunFile(s string) *Engine {
 	return e.RunString(codeString, s)
 }
 
-func stackDump(s stack) {
+func stackDump(s Stack) {
 	emit(fmt.Sprintf("\nStack: "))
 	for i, _ := range s {
 		if i < 20 {
@@ -941,7 +988,7 @@ func stackDump(s stack) {
 	}
 }
 
-func prettyStackDump(s stack, japanese bool) {
+func prettyStackDump(s Stack, japanese bool) {
 	if len(s) < 2 {
 		return
 	}
@@ -993,7 +1040,7 @@ func buildFuncStepper(e *Engine, c *Thingy) *Engine {
 }
 
 //Recurse down the data stack, picking up words and collecting them in the stack f. f will become our function.
-func buildFunc(e *Engine, f stack) *Engine {
+func buildFunc(e *Engine, f Stack) *Engine {
 	var v *Thingy
 	ne := cloneEngine(e, false)
 	v, ne.dataStack = popStack(ne.dataStack)
@@ -1030,4 +1077,26 @@ func buildFunc(e *Engine, f stack) *Engine {
 	}
 	//fmt.Printf("Returning\n")
 	return ne
+}
+
+//Exported funcs
+func Environment(e *Engine) *Thingy {
+	return e.environment
+}
+
+func PopData(e *Engine) (*Thingy, *Engine) {
+	newe := cloneEngine(e, false)
+	var el1 *Thingy
+	el1, newe.dataStack = popStack(newe.dataStack)
+	return el1, newe
+}
+
+func PushData(e *Engine, t *Thingy) *Engine {
+	newe := cloneEngine(e, false)
+	newe.dataStack = pushStack(newe.dataStack, t)
+	return newe
+}
+
+func PushStack(s Stack, v *Thingy) Stack {
+	return Stack(pushStack(Stack(s), v))
 }

@@ -372,7 +372,7 @@ func MakeEngine() *Engine {
 
 	e = add(e, "[", NewCode("BuildFuncFromStack", 9001, 0, 0, func(ne *Engine, c *Thingy) *Engine {
 		ne._funcLevel += 1 //To match the ] we will find on the stack
-		var f stack
+		var f Stack
 		ne = buildFunc(ne, f)
 		newFunc, _ := popStack(ne.dataStack)
 		newFunc.environment = ne.environment
@@ -381,7 +381,7 @@ func MakeEngine() *Engine {
 
 	e = add(e, "」", NewCode("BuildFuncFromStack", 9001, 0, 0, func(ne *Engine, c *Thingy) *Engine {
 		ne._funcLevel += 1 //To match the { we will find on the stack
-		var f stack
+		var f Stack
 		ne = buildFunc(ne, f)
 		newFunc, _ := popStack(ne.dataStack)
 		newFunc.environment = ne.environment
@@ -396,7 +396,7 @@ func MakeEngine() *Engine {
 
 	e = add(e, "】", NewCode("BuildFuncFromStack", 9001, 0, 0, func(ne *Engine, c *Thingy) *Engine {
 		ne._funcLevel += 1 //To match the { we will find on the stack
-		var f stack
+		var f Stack
 		ne = buildFunc(ne, f)
 		newFunc, _ := popStack(ne.dataStack)
 		newFunc.environment = ne.environment
@@ -414,7 +414,7 @@ func MakeEngine() *Engine {
 		var aDir *Thingy
 		aDir, ne.dataStack = popStack(ne.dataStack)
 		dir, _ = ioutil.ReadDir(aDir.GetString())
-		var f stack
+		var f Stack
 		for _, el := range dir {
 			f = pushStack(f, NewString(el.Name(), e.environment))
 		}
@@ -430,7 +430,7 @@ func MakeEngine() *Engine {
 		aCount, ne.dataStack = popStack(ne.dataStack)
 		n, _ := strconv.ParseInt(aCount.GetString(), 10, 32)
 		bits := strings.SplitN(aString.GetString(), aSeparator.GetString(), int(n))
-		var f stack
+		var f Stack
 		for _, el := range bits {
 			f = pushStack(f, NewString(el, e.environment))
 		}
@@ -682,9 +682,9 @@ func MakeEngine() *Engine {
 		threadBranch, ne.dataStack = popStack(ne.dataStack)
 
 		ne2 := cloneEngine(ne, true)
-		ne2.codeStack = stack{}
-		ne2.lexStack = stack{}
-		ne2.dataStack = stack{}
+		ne2.codeStack = Stack{}
+		ne2.lexStack = Stack{}
+		ne2.dataStack = Stack{}
 
 		ne2.codeStack = pushStack(ne2.codeStack, NewToken("CALL", ne.environment))
 		ne2.lexStack = pushStack(ne2.lexStack, ne.environment)
@@ -793,7 +793,7 @@ func MakeEngine() *Engine {
 
 	e = add(e, "NEWARRAY", NewCode("NEWARRAY", -1, 0, 1, func(ne *Engine, c *Thingy) *Engine {
 		var arr *Thingy
-		arr = NewArray(stack{})
+		arr = NewArray(Stack{})
 		ne.dataStack = pushStack(ne.dataStack, arr)
 		return ne
 	}))
@@ -815,7 +815,7 @@ func MakeEngine() *Engine {
 		el := arr._arrayVal[0]
 		newarr := clone(arr)
 		newarr._arrayVal = nil
-		newarr._arrayVal = append(stack{}, arr._arrayVal[1:]...)
+		newarr._arrayVal = append(Stack{}, arr._arrayVal[1:]...)
 		ne.dataStack = pushStack(ne.dataStack, newarr)
 		ne.dataStack = pushStack(ne.dataStack, el)
 		return ne
@@ -825,7 +825,7 @@ func MakeEngine() *Engine {
 		var arr, el *Thingy
 		el, ne.dataStack = popStack(ne.dataStack)
 		arr, ne.dataStack = popStack(ne.dataStack)
-		arr._arrayVal = append(stack{el}, arr._arrayVal...)
+		arr._arrayVal = append(Stack{el}, arr._arrayVal...)
 
 		ne.dataStack = pushStack(ne.dataStack, arr)
 		return ne
@@ -901,7 +901,7 @@ func MakeEngine() *Engine {
 		var n, _ = strconv.ParseInt(index.getSource(), 10, 32)
 
 		newarr := clone(arr)
-		newarr._arrayVal = make(stack, len(arr._arrayVal), len(arr._arrayVal))
+		newarr._arrayVal = make(Stack, len(arr._arrayVal), len(arr._arrayVal))
 		copy(newarr._arrayVal, arr._arrayVal)
 
 		newarr._arrayVal[n] = value
@@ -913,7 +913,7 @@ func MakeEngine() *Engine {
 	e = add(e, "KEYVALS", NewCode("KEYVALS", 0, 1, 1, func(ne *Engine, c *Thingy) *Engine {
 		var arr, hash *Thingy
 		hash, ne.dataStack = popStack(ne.dataStack)
-		arr = NewArray(stack{})
+		arr = NewArray(Stack{})
 		for k, v := range hash._hashVal {
 			arr._arrayVal = append(arr._arrayVal, NewString(k, ne.environment), v)
 		}
@@ -1515,10 +1515,10 @@ func MakeEngine() *Engine {
 	}))
 
 	e = add(e, "CLEARSTACK", NewCode("CLEARSTACK", 9999, 0, 0, func(ne *Engine, c *Thingy) *Engine {
-		ne.dataStack = stack{} //The argument stack
-		ne.dyn = stack{}       //The current dynamic environment
-		ne.codeStack = stack{} //The future of the program
-		ne.lexStack = stack{}
+		ne.dataStack = Stack{} //The argument stack
+		ne.dyn = Stack{}       //The current dynamic environment
+		ne.codeStack = Stack{} //The future of the program
+		ne.lexStack = Stack{}
 
 		return ne
 	}))

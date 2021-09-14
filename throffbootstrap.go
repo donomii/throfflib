@@ -4,6 +4,12 @@ func BootStrapString() string {
 
 	var str string
 	str = `
+
+	DEFINE ~> => [ ]
+	DEFINE -> => [ ]
+	DEFINE +> => [ ]
+	DEFINE *> => [ ]
+	DEFINE O> => [ ]
 	DEFINE THEN => [ ] 
 	DEFINE ELSE => [ ]
 	DEFINE なら => [ ]
