@@ -23,7 +23,7 @@ func BootStrapString() string {
 		ARG arg_name =>
 	]
 
-	DEFINE [] => [ ]
+	DEFINE [] => [ [ ] ]
 	DEFINE ~> => [ ]
 	DEFINE -> => [ ]
 	DEFINE +> => [ ]
@@ -1285,11 +1285,29 @@ DEFINE A[RECURSE => [
 
 
 DEFINE A[ => [ A[RECURSE NEWARRAY ]
-
-
-
-
 BIND ]A => ->STRING ]A TOK
+
+DEFINE (RECURSE => [
+
+	IF EQUAL ->STRING ) TOK ->STRING GETFUNCTION VAL TOK
+		[ ARR  ]
+		[
+			(RECURSE ARR
+			REBIND ARR => ARRAYPUSH ARR GETFUNCTION VAL TOK
+		]
+
+
+	ARG VAL =>
+	ARG ARR =>
+]
+
+
+
+DEFINE ( => [ (RECURSE NEWARRAY ]
+	BIND ) => ->STRING ) TOK
+
+
+
 
 
 DEFINE PRINTX => [
