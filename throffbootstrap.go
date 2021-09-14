@@ -5,10 +5,28 @@ func BootStrapString() string {
 	var str string
 	str = `
 
+	COMMENT [ *> is the statement separator.  If a reads too many arguments from the stack (or you didn't give it enough arguments), then it will throw an error.  This only works for functions that use 'arg' ]
+	DEFINE *> => [
+	WHEN NOT EQUAL next [ *> ]
+		[ '*> next ]
+
+		ARG next =>
+	]
+
+	[ arg defines a variable in the current lexical scope.  Used at the end of functions, it is effectively the argument list for the function. ]
+	DEFINE arg => MACRO [
+	IF EQUAL ->STRING arg_value ->STRING [ *> ] 
+		THEN [ INTERPERROR A[ [ Invalid number of arguments.  You did not provide enough arguments to the function: ] THISNAME ]A ]
+		ELSE ARG arg_name arg_value
+
+		ARG arg_value =>
+		ARG arg_name =>
+	]
+
+	DEFINE [] => [ ]
 	DEFINE ~> => [ ]
 	DEFINE -> => [ ]
 	DEFINE +> => [ ]
-	DEFINE *> => [ ]
 	DEFINE O> => [ ]
 	DEFINE THEN => [ ] 
 	DEFINE ELSE => [ ]
@@ -29,6 +47,18 @@ func BootStrapString() string {
 DEFINE REVERSE => [ FOLD [ UNSHIFTARRAY ] A[ ]A ]
 
 
+DEFINE DEFINE2 => MACRO [ 
+
+DEFINE NAME ->FUNC [
+	
+	BIND THISFUNCTION => NAME
+]
+
+ARG ENV => GETENV
+ARG FUNCTION =>
+ARG NAME =>
+]
+
 DEFINE SWATCH => [ 
 CALL/SELF [
 	SELF f delay
@@ -48,6 +78,8 @@ DEFINE WATCH => [
 
 DEFINE RECURSE =>   [ CALLWITHSELF ]
 DEFINE CALL/SELF => [ CALLWITHSELF ]
+
+COMMENT [ Call f with a reference to itself as the first argument.  Note to self do this properly (I think I have an example in another file?) ]
 DEFINE CALLWITHSELF => [ CALL f ->FUNC [ CALLWITHSELF f ] ARG f => ]
 
 	NAMETESTBLOCK [ Iota ] [
@@ -1633,10 +1665,12 @@ ALIAS BIND TOK : TOK
 			EQUAL LAMBDA TOK GETTYPE GETFUNCTION  DEFINE_F TOK
 			EQUAL CODE TOK GETTYPE GETFUNCTION  DEFINE_F TOK
 				MACRO [ EXIT
-				PRINTLN GETTYPE  DEFINE_F TOK  EMIT TYPE: PRINTLN SPACE
-				PRINTLN GETFUNCTION  DEFINE_F TOK  EMIT VALUE: PRINTLN DEFINE_N EMIT [ ATTEMPTED TO BIND SOMETHING THAT IS NOT A FUNCTION TO: ]  ]
+					PRINTLN GETTYPE  DEFINE_F TOK  EMIT TYPE: PRINTLN SPACE
+					PRINTLN GETFUNCTION  DEFINE_F TOK  EMIT VALUE: PRINTLN DEFINE_N EMIT [ ATTEMPTED TO BIND SOMETHING THAT IS NOT A FUNCTION TO: ]  ]
 				MACRO [ BIND DEFINE_N ->FUNC GETFUNCTION DEFINE_F TOK  ]
 		COMMENT [ PRINTLN DEFINE_N EMIT [ DEFINING:  ] ]
+
+		SETLEXENV THISNAME TOK DEFINE_N ENVIRONMENTOF DEFINE_F TOK
 		: DEFINE_F TOK
 		: DEFINE_N TOK
 	]
@@ -1696,7 +1730,7 @@ ITROFF
 IDEBUGOFF
 
 
-
+[ PAD ]
 SETTYPE CODE TOK [ EXIT .S PRINTLN [ ERROR: Read past stack bottom attempted ]  ]
 `
 

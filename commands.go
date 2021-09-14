@@ -517,13 +517,16 @@ func MakeEngine() *Engine {
 		return ne
 	}))
 
-	e = add(e, "ENVIRONMENTOF", NewCode("ENVIRONMENTOF", 0, 1, 1, func(ne *Engine, c *Thingy) *Engine {
-		var aName, aVal *Thingy
-		aName, ne.dataStack = popStack(ne.dataStack)
-		if interpreter_debug {
-			emit(fmt.Sprintf("Environment: %p - Storing %v in %v\n", aName.environment, aVal.GetString(), aName.GetString()))
-		}
+	e = add(e, "ENVIRONMENT", NewCode("ENVIRONMENT", 0, 0, 0, func(ne *Engine, c *Thingy) *Engine {
 		ne.dataStack = pushStack(ne.dataStack, ne.environment)
+		return ne
+	}))
+
+	e = add(e, "ENVIRONMENTOF", NewCode("ENVIRONMENTOF", 0, 1, 1, func(ne *Engine, c *Thingy) *Engine {
+		var aVal *Thingy
+		aVal, ne.dataStack = popStack(ne.dataStack)
+
+		ne.dataStack = pushStack(ne.dataStack, aVal.environment)
 
 		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
 		return ne
@@ -586,6 +589,21 @@ func MakeEngine() *Engine {
 		aName, ne.dataStack = popStack(ne.dataStack)
 		aVal, ne.dataStack = popStack(ne.dataStack)
 		env := ne.environment
+		//fmt.Printf("Storing %v in %v\n", aVal._source, aName._source)
+		env._llVal = ll_add(env._llVal, aName._stringVal, aVal)
+		val := ll_find(env._llVal, aName.GetString())
+		if val == nil {
+			panic("key not found in environment after set")
+		}
+		//for k,v := range ne.environment {fmt.Printf("%v: %v\n", k,v)}
+		return ne
+	}))
+
+	e = add(e, "SETLEXENV", NewCode("SETLEXENV", 3, 3, 0, func(ne *Engine, c *Thingy) *Engine {
+		var aName, aVal, env *Thingy
+		aName, ne.dataStack = popStack(ne.dataStack)
+		aVal, ne.dataStack = popStack(ne.dataStack)
+		env, ne.dataStack = popStack(ne.dataStack)
 		//fmt.Printf("Storing %v in %v\n", aVal._source, aName._source)
 		env._llVal = ll_add(env._llVal, aName._stringVal, aVal)
 		val := ll_find(env._llVal, aName.GetString())
@@ -1355,6 +1373,13 @@ func MakeEngine() *Engine {
 
 		ne.dataStack = pushStack(ne.dataStack, el1)
 		return ne
+	}))
+
+	e = add(e, "INTERPERROR", NewCode("INTERPERROR", 1, 1, 0, func(ne *Engine, c *Thingy) *Engine {
+		var err *Thingy
+		err, ne.dataStack = popStack(ne.dataStack)
+		panic(err.GetString())
+		//return ne
 	}))
 
 	e = add(e, "INSTALLDYNA", NewCode("INSTALLDYNA", 2, 0, 0, func(ne *Engine, c *Thingy) *Engine {
