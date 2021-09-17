@@ -5,17 +5,17 @@ func BootStrapString() string {
 	var str string
 	str = `
 
-	COMMENT [ *> is the statement separator.  If a reads too many arguments from the stack (or you didn't give it enough arguments), then it will throw an error.  This only works for functions that use 'arg' ]
-	DEFINE *> => [
+	COMMENT [ ;> is the statement separator.  If a reads too many arguments from the stack (or you didn't give it enough arguments), then it will throw an error.  This only works for functions that use 'arg' ]
+	DEFINE ;> => [
 	WHEN NOT EQUAL next [ *> ]
-		[ '*> next ]
+		[ ';> next ]
 
 		ARG next =>
 	]
 
 	[ arg defines a variable in the current lexical scope.  Used at the end of functions, it is effectively the argument list for the function. ]
 	DEFINE arg => MACRO [
-	IF EQUAL ->STRING arg_value ->STRING [ *> ] 
+	IF EQUAL arg_value [ ;> ] 
 		THEN [ INTERPERROR A[ [ Invalid number of arguments.  You did not provide enough arguments to the function: ] THISNAME ]A ]
 		ELSE ARG arg_name arg_value
 
@@ -27,6 +27,7 @@ func BootStrapString() string {
 	DEFINE ~> => [ ]
 	DEFINE -> => [ ]
 	DEFINE +> => [ ]
+	DEFINE *> => [ ]
 	DEFINE O> => [ ]
 	DEFINE THEN => [ ] 
 	DEFINE ELSE => [ ]
@@ -1287,6 +1288,9 @@ DEFINE A[RECURSE => [
 DEFINE A[ => [ A[RECURSE NEWARRAY ]
 BIND ]A => ->STRING ]A TOK
 
+
+
+
 DEFINE (RECURSE => [
 
 	IF EQUAL ->STRING ) TOK ->STRING GETFUNCTION VAL TOK
@@ -1300,13 +1304,25 @@ DEFINE (RECURSE => [
 	ARG VAL =>
 	ARG ARR =>
 ]
-
-
-
 DEFINE ( => [ (RECURSE NEWARRAY ]
-	BIND ) => ->STRING ) TOK
+BIND ) => ->STRING ) TOK
 
 
+DEFINE <RECURSE => [
+
+	IF EQUAL ->STRING > TOK ->STRING GETFUNCTION VAL TOK
+		[ ARR  ]
+		[
+			<RECURSE ARR
+			REBIND ARR => ARRAYPUSH ARR GETFUNCTION VAL TOK
+		]
+
+
+	ARG VAL =>
+	ARG ARR =>
+]
+DEFINE < => [ <RECURSE NEWARRAY ]
+BIND > => ->STRING > TOK
 
 
 
@@ -1377,7 +1393,7 @@ DEFINE ARRAY => [
 DEFINE STRING => [
 	IF EQUAL TYPE STRING TOK
 		[ ]
-		[ ERROR [ EXPECTED STRING BUT GOT SOMETHING ELSE INSTEAD ] ]
+		[ ERROR [ EXPECTED STRING BUT GOT SOMETHING ELSE INSTEAD lalala SPACE  ] ]
 
 	ARG TYPE TOK GETTYPE DUP
 ]
@@ -1552,7 +1568,8 @@ DEFINE _ TOK  [ STRING-CONCATENATE STRING-CONCATENATE SWAP SPACE ]
 DEFINE CD TOK [ _ SWAP ]
 ]
 
-DEFINE LS TOK MACRO [ DIRECTORY-LIST CWD ]
+DEFINE LS TOK MACRO [ DIRECTORY-LIST ]
+DEFINE L TOK MACRO [ DIRECTORY-LIST CWD ]
 
 TESTBLOCK [
 	TEST  ./  CWD  [ CWD ]

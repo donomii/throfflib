@@ -949,16 +949,13 @@ func reverse(ss []string) {
 
 func (e *Engine) CallArgs(s string, args ...string) (string, *Engine) {
 	e.LoadTokens(tokenise(s, "CallArgs from go"))
-	var tokens Stack
-	reverse(args)
 	for _, v := range args {
 		t := NewToken(v, NewHash())
 		t._id = seqID
 		t._line = -1
 		t._filename = "CallArgs args loader"
-		tokens = pushStack(tokens, t)
+		e = PushData(e, t)
 	}
-	e.LoadTokens(tokens)
 	e, _ = run(e)
 	return "", e
 }
