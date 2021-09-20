@@ -682,6 +682,21 @@ func StringsToTokens(stringBits []string) Stack {
 	return tokens
 }
 
+func StringsToArray(stringBits []string) *Thingy {
+	var tokens Stack
+	if BraceMode != "throff" {
+		reverseStringArray(stringBits)
+	}
+	for i, v := range stringBits {
+		if len(v) > 0 {
+			t := NewString(v, NewHash())
+			t._id = i
+			tokens = pushStack(tokens, t)
+		}
+	}
+	return NewArray(tokens)
+}
+
 func engineDump(e *Engine) {
 	emit(fmt.Sprintf("Stack: %v, Code: %v, Environment: %v items\n", len(e.dataStack), len(e.codeStack), len(e.environment._hashVal)))
 	emit(fmt.Sprintf("---------------------------"))

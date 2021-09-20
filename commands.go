@@ -26,7 +26,6 @@ import (
 
 	"github.com/donomii/goof"
 
-	"github.com/codeskyblue/go-sh"
 	"github.com/edsrzf/mmap-go"
 
 	//import "net/http"
@@ -448,9 +447,10 @@ func MakeEngine() *Engine {
 		var aName, aVal *Thingy
 		defer func() {
 			if r := recover(); r != nil {
-				emit(fmt.Sprintln("Unable to set variable ", aName.getSource(), " because ", r))
+				msg := fmt.Sprintln("Unable to set variable ", aName.getSource(), " because ", r)
+				emit(msg)
 				engineDump(ne)
-				os.Exit(1)
+				panic(msg)
 			}
 		}()
 		aName, ne.dataStack = popStack(ne.dataStack)
@@ -463,8 +463,9 @@ func MakeEngine() *Engine {
 		prev := ll_find(env._llVal, aName.GetString())
 		if prev == nil {
 			if e._safeMode {
-				emit(fmt.Sprintf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.GetString(), aName._filename, aName._line, prev.GetString()))
-				os.Exit(1)
+				msg := fmt.Sprintf("Warning:  mutating binding %v in %v at line %v(previous value %v)\n", aName.GetString(), aName._filename, aName._line, prev.GetString())
+				emit(msg)
+				panic(msg)
 			}
 		}
 		env._llVal = ll_add(env._llVal, aName.GetString(), aVal)
@@ -488,9 +489,10 @@ func MakeEngine() *Engine {
 		var aName, aVal *Thingy
 		defer func() {
 			if r := recover(); r != nil {
-				emit(fmt.Sprintln("Unable to set variable ", aName.getSource(), " because ", r))
+				msg := fmt.Sprintln("Unable to set variable ", aName.getSource(), " because ", r)
+				emit(msg)
 				engineDump(ne)
-				os.Exit(1)
+				panic(msg)
 			}
 		}()
 
@@ -504,8 +506,9 @@ func MakeEngine() *Engine {
 		val := ll_find(env._llVal, aName.GetString())
 		if val == nil {
 			if e._safeMode {
-				emit(fmt.Sprintf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.GetString(), aName._line))
-				os.Exit(1)
+				msg := fmt.Sprintf("Warning:  Could not mutate: binding %v not found at line %v\n", aName.GetString(), aName._line)
+				emit(msg)
+				panic(msg)
 			}
 		}
 		env._llVal = ll_add(env._llVal, aName.GetString(), aVal)
@@ -854,9 +857,10 @@ func MakeEngine() *Engine {
 
 		defer func() {
 			if r := recover(); r != nil {
-				emit(fmt.Sprintf("Array out of bounds in getarray: index %v\n", arr, el.getSource()))
+				msg := fmt.Sprintf("Array out of bounds in getarray: index %v\n", arr, el.getSource())
+				emit(msg)
 				engineDump(ne)
-				os.Exit(1)
+				panic(msg)
 			}
 		}()
 		el, ne.dataStack = popStack(ne.dataStack)
@@ -1265,15 +1269,12 @@ func MakeEngine() *Engine {
 		}
 		//This is lunacy
 		command := args[0]
-		var arglist []interface{}
+		var arglist []string
 		for _, i := range args[1:] {
 			arglist = append(arglist, i)
 		}
-		//sh.Command(command, arglist...).Run()
-		out, err := sh.Command(command, arglist...).Output()
-		if err != nil {
-			log.Fatal(err)
-		}
+
+		out := goof.Command(command, arglist)
 		ne.dataStack = pushStack(ne.dataStack, NewString(string(out), ne.environment))
 		return ne
 	}))
